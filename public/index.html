@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drew's Spotify Playlist Sorter</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
+    .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+    .pulse-hover:hover { animation: pulse 0.3s ease-in-out; }
+    .glass-effect { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    .spotify-gradient { background: linear-gradient(135deg, #1DB954 0%, #1ed760 100%); }
+    .red-gradient { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+    .card-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 25px 50px -12px rgba(220, 38, 38, 0.25); }
+    .track-item { transition: all 0.2s ease; border-left: 4px solid transparent; }
+    .track-item:hover:not(.sortable-ghost) { border-left-color: #dc2626; background: rgba(220, 38, 38, 0.1); }
+    .track-item.selected { background: rgba(220, 38, 38, 0.2); border-left-color: #ef4444; }
+    .track-item.track-moved { border-left-color: #eab308; background: rgba(234, 179, 8, 0.06); }
+    .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #dc2626, #ef4444); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #b91c1c, #dc2626); }
+    #filterInput { background-color: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fca5a5; padding: 0.5rem 0.75rem; border-radius: 0.5rem; flex: 1 1 220px; min-width: 200px; }
+    #filterInput::placeholder { color: #fecaca; opacity: 0.7; }
+    .skeleton {
+      background-color: rgba(255, 255, 255, 0.05);
+      background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite linear;
+      border-radius: 0.25rem;
+    }
+    .skeleton-text { height: 1em; margin-bottom: 0.5em; }
+    .skeleton-image { width: 100%; height: 100%; }
+    #trackInfoModal { background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); }
+    .modal-content { max-width: 600px; width: 90%; }
+    .modal-image { width: 150px; height: 150px; }
+    .track-preview-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(5px);
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .playlist-item:hover .track-preview-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .track-preview-list {
+      flex: 1;
+      overflow-y: auto;
+      space-y: 0.5rem;
+    }
+    .preview-track-item {
+      padding: 0.5rem;
+      background: rgba(220, 38, 38, 0.1);
+      border-left: 2px solid #ef4444;
+      border-radius: 0.25rem;
+    }
+    .preview-track-item .track-name { font-weight: 500; color: #fca5a5; }
+    .preview-track-item .track-artist { font-size: 0.75rem; color: #f87171; opacity: 0.8; }
+    .sort-select {
+      background-color: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fca5a5;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+    }
+    .playlist-item img, .playlist-item .playlist-cover-placeholder {
+      display: block;
+      width: 100%;
+      height: 144px;
+      object-fit: cover;
+    }
+    #playlistCover {
+      width: 72px;
+      height: 72px;
+      border-radius: 0.5rem;
+      object-fit: cover;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
+    }
+    .centered-login { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; z-index: 50; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); }
+    .login-card { text-align: center; background: rgba(30, 30, 30, 0.8); padding: 3rem; border-radius: 1.5rem; border: 1px solid rgba(220, 38, 38, 0.2); box-shadow: 0 25px 50px -12px rgba(220, 38, 38, 0.25); }
+    .header-logo { width: 32px; height: 32px; }
+    .genre-badge { display: inline-block; background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.3); color: #fca5a5; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 9999px; margin-right: 2px; }
+    #volumeSlider { accent-color: #ef4444; }
+    .ctrl-btn-active { background: rgba(220,38,38,0.5) !important; color: #fca5a5 !important; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-black to-gray-900 min-h-screen flex flex-col text-red-100">
+
+  <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+    <div class="absolute -top-4 -left-4 w-72 h-72 bg-red-600 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div class="absolute -bottom-8 -right-4 w-72 h-72 bg-red-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style="animation-delay: 2s;"></div>
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-700 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse" style="animation-delay: 4s;"></div>
+  </div>
+
+  <header class="relative glass-effect text-red-100 p-4 lg:p-6 flex justify-between items-center shadow-2xl z-10">
+    <div class="flex items-center space-x-4 fade-in-up">
+      <img src="/logo.svg" alt="Logo" class="header-logo" />
+      <div>
+        <h1 class="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-red-400 via-red-500 to-red-600 bg-clip-text text-transparent">
+          Drew's Spotify Sorter
+        </h1>
+        <p id="headerSubtitle" class="text-red-300 text-sm mt-1 opacity-80">Organize your music, your way</p>
+      </div>
+    </div>
+    <button id="loginOrLogoutBtn" class="red-gradient hover:shadow-lg hover:shadow-red-500/25 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 pulse-hover">
+    </button>
+  </header>
+
+  <div id="loginOverlay" class="centered-login hidden">
+    <div class="login-card">
+      <img src="/logo.svg" alt="Logo" class="w-24 h-24 mx-auto mb-8" />
+      <h2 class="text-5xl font-bold bg-gradient-to-r from-red-400 via-red-500 to-red-600 bg-clip-text text-transparent mb-4">
+        Drew's Spotify Sorter
+      </h2>
+      <p class="text-red-200 text-xl opacity-90 mb-10">Organize your music, your way</p>
+      <button id="loginScreenBtn" class="red-gradient hover:shadow-lg hover:shadow-red-500/50 text-white px-16 py-4 rounded-xl font-bold text-xl transition-all duration-300 transform hover:scale-110 pulse-hover">
+        Connect to Spotify
+      </button>
+    </div>
+  </div>
+
+  <main class="flex-grow relative z-10" id="mainContent">
+    <div class="flex gap-4 p-4 lg:p-6 items-start max-w-screen-2xl mx-auto flex-col lg:flex-row">
+
+      <aside class="w-full lg:w-56 xl:w-64 flex-shrink-0">
+        <section id="profile" class="glass-effect p-5 rounded-2xl shadow-xl hidden fade-in-up lg:sticky lg:top-6">
+          <div class="flex flex-col items-center text-center space-y-3">
+            <div class="relative">
+              <img id="profileImage" src="" alt="Your Profile" class="w-20 h-20 rounded-full border-4 border-red-500 shadow-lg object-cover" />
+              <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900 hidden" id="onlineIndicator"></div>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-red-100" id="profileName"></h2>
+              <p class="text-red-300 opacity-70 text-xs mt-1" id="profileFollowers"></p>
+            </div>
+            <div class="flex items-center space-x-1 text-green-400 text-xs">
+              <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Connected</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <div class="flex-1 min-w-0 space-y-6">
+
+        <section id="yourPlaylistsSection" class="mb-2">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-3xl font-bold text-red-100 flex items-center space-x-3">
+              <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+              </svg>
+              <span>Your Playlists</span>
+            </h2>
+            <div id="playlistsTotal" class="text-red-300 text-sm opacity-80">
+              Click any playlist to start organizing
+            </div>
+          </div>
+          <div id="playlists" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+        </section>
+
+        <section id="trackSection" class="hidden">
+          <div class="glass-effect p-8 backdrop-blur-sm rounded-2xl shadow-2xl">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
+              <div class="flex items-center space-x-4">
+                <img id="playlistCover" src="" alt="Playlist cover" class="hidden" />
+                <div class="text-center sm:text-left">
+                  <h2 id="playlistTitle" class="text-2xl font-bold text-red-100 mb-2"></h2>
+                  <p class="text-red-300 opacity-80 text-sm">Drag &amp; drop to reorder &bull; Click &times; to remove</p>
+                  <p id="playlistStatsText" class="text-red-300 text-xs opacity-70 mt-1"></p>
+                  <p id="dirtyBadge" class="text-yellow-400 text-xs font-semibold mt-1 hidden"></p>
+                </div>
+              </div>
+              <div class="flex space-x-2 sm:space-x-3">
+                <button id="undoBtn" title="Undo (Ctrl+Z)" disabled class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all duration-300 whitespace-nowrap text-sm sm:text-base">
+                  ↶
+                </button>
+                <button id="redoBtn" title="Redo (Ctrl+Y)" disabled class="bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all duration-300 whitespace-nowrap text-sm sm:text-base">
+                  ↷
+                </button>
+                <button id="shufflePlaylistBtn" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 pulse-hover whitespace-nowrap text-sm sm:text-base">
+                  Shuffle
+                </button>
+                <button id="saveAsNewBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 pulse-hover whitespace-nowrap text-sm sm:text-base">
+                  Save as New
+                </button>
+                <button id="saveOrderBtn" class="spotify-gradient hover:shadow-lg hover:shadow-green-500/25 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 pulse-hover whitespace-nowrap text-sm sm:text-base">
+                  <span class="flex items-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <span>Save Changes</span>
+                  </span>
+                </button>
+                <button id="discardBtn" title="Discard unsaved changes" class="hidden bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl font-semibold transition-all duration-300 whitespace-nowrap text-sm sm:text-base">
+                  Discard
+                </button>
+              </div>
+            </div>
+
+            <div id="playlistToolsContainer" class="mb-4 flex flex-col md:flex-row md:flex-wrap md:items-center gap-3 hidden">
+              <input type="text" id="filterInput" placeholder="Filter tracks by name or artist..." class="form-input">
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-red-200 text-sm whitespace-nowrap">Sort by:</span>
+                <select id="sortFeatureSelect" class="sort-select">
+                  <option value="manual">Manual (Original)</option>
+                  <option value="name">Name</option>
+                  <option value="artist">Artist</option>
+                  <option value="album">Album</option>
+                  <option value="duration_ms">Duration</option>
+                  <option value="popularity">Popularity</option>
+                </select>
+                <select id="sortOrderSelect" class="sort-select">
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+                <select id="smartSortSelect" class="sort-select" title="Auto-DJ ordering">
+                  <option value="">Smart Sort…</option>
+                  <option value="flow">Flow (smooth energy)</option>
+                  <option value="buildup">Build-up (energy ramp)</option>
+                  <option value="genre">Group by genre</option>
+                </select>
+              </div>
+              <button id="removeDuplicatesBtn" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 transform hover:scale-105 whitespace-nowrap">
+                Remove Duplicates
+              </button>
+              <button id="loadGenresBtn" title="Fetch genre tags for every track from Last.fm" class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 transform hover:scale-105 whitespace-nowrap">
+                Load Genres
+              </button>
+              <button id="genreStatsBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 transform hover:scale-105 whitespace-nowrap">
+                Genre Stats
+              </button>
+            </div>
+
+            <div id="batchActionsContainer" class="mb-4 flex items-center space-x-4 hidden">
+              <label class="flex items-center space-x-2 text-red-200 cursor-pointer">
+                <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-5 w-5 text-red-500 bg-gray-700 border-gray-600 rounded focus:ring-red-500">
+                <span>Select All</span>
+              </label>
+              <button id="removeSelectedBtn" class="red-gradient hover:shadow-lg hover:shadow-red-500/25 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Remove Selected (<span id="selectedCount">0</span>)
+              </button>
+            </div>
+
+            <div class="relative">
+              <ul id="trackList" class="divide-y divide-red-800/30 max-h-[600px] overflow-y-auto custom-scrollbar rounded-lg"></ul>
+              <div id="emptyState" class="text-center py-12 hidden">
+                <svg class="w-16 h-16 text-red-400 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                </svg>
+                <p class="text-red-300 text-lg">No tracks to display</p>
+                <p class="text-red-400 text-sm opacity-70">Select a playlist to get started</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="w-full lg:w-64 xl:w-72 flex-shrink-0">
+        <section id="nowPlayingSection" class="glass-effect p-5 rounded-2xl shadow-xl hidden fade-in-up lg:sticky lg:top-6 space-y-3">
+
+          <p class="text-xs text-red-400 font-semibold uppercase tracking-widest">Now Playing</p>
+
+          <div class="relative">
+            <img id="nowPlayingAlbumArt" src="" alt="Now Playing" class="w-full aspect-square rounded-xl shadow-lg border-2 border-red-500/30 object-cover bg-red-900/20" />
+          </div>
+
+          <div class="space-y-0.5">
+            <h2 id="nowPlayingTrack" class="text-sm font-bold text-red-100 line-clamp-2 leading-snug"></h2>
+            <p id="nowPlayingArtist" class="text-red-300 text-xs"></p>
+            <p id="nowPlayingAlbum" class="text-red-400/60 text-xs truncate"></p>
+            <div id="nowPlayingGenres" class="pt-1"></div>
+          </div>
+
+          <div>
+            <div class="w-full bg-gray-700/30 rounded-full h-1.5 cursor-pointer group" id="progressBarContainer" title="Click to seek">
+              <div id="progressBar" class="bg-gradient-to-r from-red-500 to-red-600 h-1.5 rounded-full transition-all duration-1000 group-hover:from-red-400 group-hover:to-red-500" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-red-400/60 mt-1">
+              <span id="progressTime">0:00</span>
+              <span id="durationTime">0:00</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-center space-x-3">
+            <button id="prevBtn" title="Previous" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 p-2.5 rounded-full transition-all transform hover:scale-110">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"></path></svg>
+            </button>
+            <button id="playPauseBtn" title="Play / Pause" class="bg-red-600 hover:bg-red-700 text-white p-3.5 rounded-full transition-all transform hover:scale-110 shadow-lg">
+              <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+              <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path></svg>
+            </button>
+            <button id="nextBtn" title="Next" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 p-2.5 rounded-full transition-all transform hover:scale-110">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 18h2V6h-2v12zm-11-7l8.5-6v12l-8.5-6z"></path></svg>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-center gap-2">
+            <button id="likeBtn" title="Save to Liked Songs" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-1.5 rounded-full transition-all text-xs font-semibold flex items-center gap-1">
+              <svg id="likeIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+              <span id="likeLabel">Like</span>
+            </button>
+            <button id="addToPlaylistBtn" title="Add to a playlist" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-1.5 rounded-full transition-all text-xs font-semibold flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zM2 16h8v-2H2v2zm19.5-4.5L23 13l-6.99 7-4.51-4.5L13 14l3.01 3 5.49-5.5z"></path></svg>
+              Add
+            </button>
+          </div>
+
+          <div class="flex items-center justify-center gap-2">
+            <button id="shuffleBtn" title="Shuffle" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-1.5 rounded-full transition-all text-xs font-semibold flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4zM14.83 13.41l-1.41 1.41 2.13 2.13L13.5 19H19v-5.5l-2.04 2.04z"></path></svg>
+              Shuffle
+            </button>
+            <button id="repeatBtn" title="Cycle repeat" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 px-3 py-1.5 rounded-full transition-all text-xs font-semibold flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"></path></svg>
+              <span id="repeatLabel">Repeat</span>
+            </button>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0 text-red-400/70" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"></path></svg>
+              <input type="range" id="volumeSlider" min="0" max="100" value="50" class="flex-1 h-1.5 rounded-full cursor-pointer" />
+              <svg class="w-4 h-4 flex-shrink-0 text-red-400/70" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>
+            </div>
+            <p class="text-center text-xs text-red-400/50" id="volumeValue">50%</p>
+          </div>
+
+          <div id="queueContainer" class="pt-2 border-t border-red-900/30 hidden">
+            <p class="text-xs text-red-400 font-semibold uppercase tracking-widest mb-2">Up Next</p>
+            <div id="queueList" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1"></div>
+          </div>
+
+        </section>
+      </aside>
+
+    </div>
+  </main>
+
+  <div id="loadingOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="glass-effect p-8 rounded-2xl text-center">
+      <div class="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p class="text-red-100 text-lg font-semibold">Loading your music...</p>
+      <p class="text-red-300 text-sm opacity-80 mt-2">This might take a moment</p>
+    </div>
+  </div>
+
+  <div id="trackInfoModal" class="fixed inset-0 z-40 hidden items-center justify-center">
+    <div class="modal-content glass-effect p-8 rounded-2xl shadow-2xl text-red-100 relative">
+      <button id="closeModalBtn" class="absolute top-4 right-4 text-red-300 hover:text-red-100">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+      <div class="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-6">
+        <img id="modalTrackImage" src="" alt="Album Art" class="modal-image rounded-lg object-cover shadow-lg hidden">
+        <div class="flex-grow">
+          <h3 id="modalTrackName" class="text-2xl sm:text-3xl font-bold mb-1 truncate"></h3>
+          <p id="modalTrackArtist" class="text-red-200 text-lg sm:text-xl mb-3"></p>
+          <p id="modalTrackAlbum" class="text-red-300 text-sm mb-1"></p>
+          <p id="modalTrackReleaseDate" class="text-red-300 text-sm mb-1"></p>
+          <p id="modalTrackDuration" class="text-red-300 text-sm mb-3"></p>
+          <div id="modalTrackGenres" class="mb-4"></div>
+          <div id="modalAudioFeatures" class="grid grid-cols-2 gap-2 text-sm mb-4"></div>
+          <a id="modalSpotifyLink" href="#" target="_blank" rel="noopener noreferrer" class="spotify-gradient text-white px-4 py-2 rounded-lg inline-block font-semibold hover:shadow-lg hover:shadow-green-500/25 transition-all">
+            Open on Spotify
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="genreStatsModal" class="fixed inset-0 z-40 hidden items-center justify-center" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);">
+    <div class="modal-content glass-effect p-8 rounded-2xl shadow-2xl text-red-100 relative">
+      <button id="closeGenreStatsBtn" class="absolute top-4 right-4 text-red-300 hover:text-red-100">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+      <h3 class="text-2xl font-bold mb-1">Genre Breakdown</h3>
+      <p id="genreStatsSubtitle" class="text-red-300 text-sm opacity-70 mb-4"></p>
+      <div id="genreStatsBody" class="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2"></div>
+    </div>
+  </div>
+
+  <div id="addToPlaylistModal" class="fixed inset-0 z-40 hidden items-center justify-center" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);">
+    <div class="modal-content glass-effect p-8 rounded-2xl shadow-2xl text-red-100 relative" style="max-width: 420px;">
+      <button id="closeAddToPlaylistBtn" class="absolute top-4 right-4 text-red-300 hover:text-red-100">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+      <h3 class="text-xl font-bold mb-1">Add to Playlist</h3>
+      <p id="addToPlaylistTrackName" class="text-red-300 text-sm opacity-70 mb-4 truncate"></p>
+      <div id="addToPlaylistList" class="space-y-1.5 max-h-[400px] overflow-y-auto custom-scrollbar pr-2"></div>
+    </div>
+  </div>
+
+  <div id="toastContainer" role="status" aria-live="polite" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
