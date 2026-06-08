@@ -73,8 +73,14 @@ def _do_oauth():
     except Exception as e:
         print(f"[MCP] Could not auto-open browser ({e}). Waiting for manual authorization...")
 
+    max_wait_seconds = 600
+    waited_seconds = 0
     while "code" not in code_holder:
         server.handle_request()
+        waited_seconds += server.timeout
+        if "code" not in code_holder and waited_seconds >= max_wait_seconds:
+            server.server_close()
+            raise TimeoutError("Timed out waiting for Spotify authorization. Please try again.")
 
     server.server_close()
     _auth_manager.get_access_token(code_holder["code"], as_dict=False, check_cache=False)

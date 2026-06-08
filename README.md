@@ -318,6 +318,20 @@ SpotifySortTool/
 
 ---
 
+## Get the Code
+
+Clone with git:
+
+```bash
+git clone https://github.com/drew-codes-things/SpotifyDashTool.git
+```
+
+Or with the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh repo clone drew-codes-things/SpotifyDashTool
+```
+
 ## License
 
 GPL-3.0 - made by [Drew](https://github.com/drew-codes-things)

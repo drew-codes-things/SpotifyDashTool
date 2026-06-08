@@ -20,7 +20,10 @@ const {
   LASTFM_API_KEY
 } = process.env;
 
-const basicAuth = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+function getBasicAuth() {
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) return null;
+  return Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+}
 
 app.get('/api/config', (req, res) => {
   if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || !BACKEND_REDIRECT_URI) {
@@ -53,6 +56,10 @@ app.get('/callback', (req, res) => {
 
 app.post('/api/token', async (req, res) => {
   const { code, code_verifier } = req.body;
+  const basicAuth = getBasicAuth();
+  if (!basicAuth) {
+    return res.status(500).json({ error: 'Server misconfiguration: missing Spotify credentials. Check .env file.' });
+  }
   try {
     const params = new URLSearchParams({
       grant_type:   'authorization_code',
@@ -76,6 +83,10 @@ app.post('/api/token', async (req, res) => {
 
 app.post('/api/refresh', async (req, res) => {
   const { refreshToken } = req.body;
+  const basicAuth = getBasicAuth();
+  if (!basicAuth) {
+    return res.status(500).json({ error: 'Server misconfiguration: missing Spotify credentials. Check .env file.' });
+  }
   try {
     const response = await axios.post('https://accounts.spotify.com/api/token',
       new URLSearchParams({

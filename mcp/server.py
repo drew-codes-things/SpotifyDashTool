@@ -308,6 +308,8 @@ def sort_playlist(playlist_id: str, sort_by: str = "name", order: str = "asc") -
             return t["artists"][0].lower() if t["artists"] else ""
         elif sort_by == "album":
             return t["album"].lower()
+        elif sort_by == "release_date":
+            return t.get("release_date") or ""
         else:
             return t.get(sort_by, 0) or 0
 

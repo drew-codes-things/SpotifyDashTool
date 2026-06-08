@@ -36,7 +36,8 @@ function startMcpProcess() {
     try { msg = JSON.parse(line); } catch { return; }
     const id = msg.id;
     if (id !== undefined && pending.has(id)) {
-      const { resolve, reject } = pending.get(id);
+      const { resolve, reject, timer } = pending.get(id);
+      clearTimeout(timer);
       pending.delete(id);
       if (msg.error) reject(new Error(msg.error.message || JSON.stringify(msg.error)));
       else resolve(msg.result);
@@ -50,7 +51,8 @@ function startMcpProcess() {
     initialized = false;
     initPromise = null;
 
-    for (const [, { reject }] of pending) {
+    for (const [, { reject, timer }] of pending) {
+      clearTimeout(timer);
       reject(new Error('MCP process exited unexpectedly'));
     }
     pending.clear();
@@ -81,14 +83,14 @@ function send(message) {
 function rpc(method, params = {}) {
   return new Promise((resolve, reject) => {
     const id = requestId++;
-    pending.set(id, { resolve, reject });
-    send({ jsonrpc: '2.0', id, method, params });
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
         reject(new Error(`MCP call timed out: ${method}`));
       }
     }, 15000);
+    pending.set(id, { resolve, reject, timer });
+    send({ jsonrpc: '2.0', id, method, params });
   });
 }
 
