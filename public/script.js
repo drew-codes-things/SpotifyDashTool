@@ -17,6 +17,15 @@ let redoStack = [];
 const HIDDEN_PLAYLISTS = ['My Shazam Tracks'];
 const MAX_HISTORY = 50;
 
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const trackList              = document.getElementById('trackList');
 const saveOrderButton        = document.getElementById('saveOrderBtn');
 const saveAsNewButton        = document.getElementById('saveAsNewBtn');
@@ -120,6 +129,19 @@ if (loadGenresBtn)  loadGenresBtn.addEventListener('click', () => loadAllGenres(
 if (undoBtn)        undoBtn.addEventListener('click', undo);
 if (redoBtn)        redoBtn.addEventListener('click', redo);
 if (discardBtn)     discardBtn.addEventListener('click', discardChanges);
+
+if (trackList) {
+  trackList.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.track-remove-btn');
+    if (removeBtn) { handleRemoveTrack(removeBtn.dataset.uri); return; }
+    const info = e.target.closest('.track-info');
+    if (info) openTrackModal(info.dataset.uri);
+  });
+  trackList.addEventListener('keydown', (e) => {
+    const handle = e.target.closest('.drag-handle');
+    if (handle) handleReorderKey(e, handle.dataset.uri);
+  });
+}
 
 if (smartSortSelect)
   smartSortSelect.addEventListener('change', () => {
@@ -368,8 +390,8 @@ async function loadPlaylists() {
     for (const p of playlists) window._playlistMeta[p.id] = { name: p.name, image: p.image };
 
     container.innerHTML = playlists.map(p => {
-      const safeName    = p.name.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      const displayName = p.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const safeName  = escHtml(p.name);
+      const safeOwner = escHtml(p.owner || 'Unknown');
       return `
     <button
       class="playlist-item relative card-hover w-full text-left p-0 rounded-xl glass-effect hover:border hover:border-red-500/30 transition-all duration-300 flex flex-col overflow-hidden group"
@@ -384,14 +406,14 @@ async function loadPlaylists() {
            </div>`
       }
       <div class="track-preview-overlay">
-        <div class="font-bold text-red-200 text-sm mb-2 truncate">${displayName}</div>
+        <div class="font-bold text-red-200 text-sm mb-2 truncate">${safeName}</div>
         <div id="preview-tracks-${p.id}" class="track-preview-list text-xs space-y-1 overflow-y-auto">
           <div class="text-gray-400 text-center py-2">Loading tracks...</div>
         </div>
       </div>
       <div class="p-4 min-w-0 relative z-10 bg-gradient-to-t from-black/60 to-transparent">
-        <div class="font-semibold text-red-100 truncate">${displayName}</div>
-        <div class="text-xs text-red-400 opacity-50">by ${p.owner || 'Unknown'}</div>
+        <div class="font-semibold text-red-100 truncate">${safeName}</div>
+        <div class="text-xs text-red-400 opacity-50">by ${safeOwner}</div>
       </div>
     </button>
   `}).join('');
@@ -416,8 +438,8 @@ async function loadPlaylists() {
           if (!tracks.length) { el.innerHTML = '<div class="text-gray-400 text-center py-2">No tracks</div>'; return; }
           el.innerHTML = tracks.slice(0, 5).map(t => `
             <div class="preview-track-item">
-              <div class="track-name truncate">${t.name || 'Unknown'}</div>
-              <div class="track-artist truncate">${t.artists?.[0] || 'Unknown Artist'}</div>
+              <div class="track-name truncate">${escHtml(t.name || 'Unknown')}</div>
+              <div class="track-artist truncate">${escHtml(t.artists?.[0] || 'Unknown Artist')}</div>
             </div>
           `).join('') + (tracks.length > 5 ? `<div class="text-gray-400 text-center py-1">+${tracks.length - 5} more</div>` : '');
         } catch (err) {
@@ -798,7 +820,7 @@ function applyGenreToRow(t) {
   const el = li.querySelector('.genre-tag');
   if (!el) return;
   const genres = t.genre_text ? t.genre_text.split(', ').filter(Boolean) : [];
-  el.innerHTML = genres.map(g => `<span class="genre-badge">${g}</span>`).join('');
+  el.innerHTML = genres.map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('');
 }
 
 function setGenreBtnProgress(done, total) {
@@ -865,7 +887,7 @@ function openTrackModal(uriOrTrack) {
   const genresEl = document.getElementById('modalTrackGenres');
   if (genresEl) {
     genresEl.innerHTML = track.genre_text
-      ? track.genre_text.split(', ').map(g => `<span class="genre-badge">${g}</span>`).join('')
+      ? track.genre_text.split(', ').map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
       : '<span class="text-red-400 text-xs">Loading...</span>';
   }
 
@@ -898,7 +920,7 @@ function openTrackModal(uriOrTrack) {
           if (idx !== -1) displayedTracks[idx].genre_text = genres.join(', ');
           if (genresEl) {
             genresEl.innerHTML = genres.length
-              ? genres.map(g => `<span class="genre-badge">${g}</span>`).join('')
+              ? genres.map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
               : '<span class="text-red-400 text-xs">Unknown</span>';
           }
         })
@@ -975,27 +997,27 @@ function renderTracks(tracks) {
     return;
   }
   trackList.innerHTML = tracks.map(t => {
+    const safeUri  = escHtml(t.uri);
     const artist   = t.artists?.map(a => String(a)).join(', ') || 'Unknown Artist';
     const duration = formatDuration(t.duration_ms);
     const thumbHtml = t.image
       ? `<img src="${t.image}" alt="" class="w-10 h-10 rounded object-cover flex-shrink-0" loading="lazy">`
       : '<div class="w-10 h-10 rounded bg-red-900/40 flex-shrink-0 flex items-center justify-center"><svg class="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg></div>';
     const genreBadges = t.genre_text
-      ? t.genre_text.split(', ').map(g => `<span class="genre-badge">${g}</span>`).join('')
+      ? t.genre_text.split(', ').map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
       : '';
-    return `<li class="track-item flex items-center gap-3 p-3 rounded-lg group" data-uri="${t.uri}">
-      <span class="drag-handle cursor-grab text-red-700 hover:text-red-400 text-lg select-none px-1" tabindex="0" role="button" aria-label="Reorder track. Press Alt with Arrow Up or Arrow Down to move." data-uri="${t.uri}" onkeydown="handleReorderKey(event, '${t.uri}')">⠿</span>
-      <input type="checkbox" class="track-checkbox w-4 h-4 flex-shrink-0" data-uri="${t.uri}" onchange="updateSelectedCount()">
+    return `<li class="track-item flex items-center gap-3 p-3 rounded-lg group" data-uri="${safeUri}">
+      <span class="drag-handle cursor-grab text-red-700 hover:text-red-400 text-lg select-none px-1" tabindex="0" role="button" aria-label="Reorder track. Press Alt with Arrow Up or Arrow Down to move." data-uri="${safeUri}">⠿</span>
+      <input type="checkbox" class="track-checkbox w-4 h-4 flex-shrink-0" data-uri="${safeUri}" onchange="updateSelectedCount()">
       ${thumbHtml}
-      <div class="min-w-0 flex-1 cursor-pointer" onclick="openTrackModal('${t.uri}')">
-        <div class="font-medium truncate text-red-100">${t.name || 'Unknown'}</div>
-        <div class="text-sm text-red-300 truncate">${artist}</div>
+      <div class="track-info min-w-0 flex-1 cursor-pointer" data-uri="${safeUri}">
+        <div class="font-medium truncate text-red-100">${escHtml(t.name || 'Unknown')}</div>
+        <div class="text-sm text-red-300 truncate">${escHtml(artist)}</div>
         <div class="genre-tag mt-0.5">${genreBadges}</div>
       </div>
       <div class="text-sm text-red-400 flex-shrink-0">${duration}</div>
-      <button onclick="handleRemoveTrack('${t.uri}')"
-        class="text-red-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1 ml-1"
-        aria-label="Remove track">✕</button>
+      <button class="track-remove-btn text-red-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1 ml-1"
+        data-uri="${safeUri}" aria-label="Remove track">✕</button>
     </li>`;
   }).join('');
   initSortable();
@@ -1041,7 +1063,7 @@ function displayNowPlaying(data) {
       .then(r => r.json())
       .then(d => {
         const tags = d.tags || d.genres || [];
-        nowPlayingGenresEl.innerHTML = tags.slice(0, 3).map(g => `<span class="genre-badge">${g}</span>`).join('');
+        nowPlayingGenresEl.innerHTML = tags.slice(0, 3).map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('');
       })
       .catch(() => {});
   }
@@ -1132,12 +1154,12 @@ function renderQueue() {
     const thumb  = t.image
       ? `<img src="${t.image}" alt="" class="w-8 h-8 rounded object-cover flex-shrink-0">`
       : '<div class="w-8 h-8 rounded bg-red-900/40 flex-shrink-0"></div>';
-    return `<div class="queue-item flex items-center gap-2 rounded-lg p-1 hover:bg-red-500/10 transition-all group" data-uri="${t.uri}">
+    return `<div class="queue-item flex items-center gap-2 rounded-lg p-1 hover:bg-red-500/10 transition-all group" data-uri="${escHtml(t.uri)}">
       <span class="queue-drag cursor-grab text-red-700 hover:text-red-400 select-none px-0.5" title="Drag to reorder">⠿</span>
       ${thumb}
       <div class="min-w-0 flex-1 cursor-pointer" data-queue-index="${i}" title="Play from here">
-        <div class="text-xs font-medium text-red-100 truncate">${t.name || 'Unknown'}</div>
-        <div class="text-xs text-red-400/70 truncate">${artist}</div>
+        <div class="text-xs font-medium text-red-100 truncate">${escHtml(t.name || 'Unknown')}</div>
+        <div class="text-xs text-red-400/70 truncate">${escHtml(artist)}</div>
       </div>
       <button class="queue-play text-red-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1" data-queue-index="${i}" title="Play from here" aria-label="Play from here">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
@@ -1294,7 +1316,7 @@ function openAddToPlaylistModal() {
         ${m.image
           ? `<img src="${m.image}" alt="" class="w-8 h-8 rounded object-cover flex-shrink-0">`
           : '<div class="w-8 h-8 rounded bg-red-900/40 flex-shrink-0"></div>'}
-        <span class="text-sm text-red-100 truncate">${m.name}</span>
+        <span class="text-sm text-red-100 truncate">${escHtml(m.name)}</span>
       </button>
     `).join('');
     list.querySelectorAll('.add-to-pl-item').forEach(btn => {
@@ -1348,7 +1370,7 @@ async function openGenreStats() {
     const pct = Math.round((count / max) * 100);
     return `<div>
       <div class="flex justify-between text-xs mb-1">
-        <span class="text-red-200 capitalize">${genre}</span>
+        <span class="text-red-200 capitalize">${escHtml(genre)}</span>
         <span class="text-red-400/70">${count}</span>
       </div>
       <div class="w-full bg-gray-700/30 rounded-full h-2">
