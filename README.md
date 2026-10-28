@@ -141,7 +141,7 @@ The UI is a three-column layout: **user profile** (left), **playlists + track ed
 
 ### Playlists & track editor
 - **Drag & drop** reordering of tracks within a playlist
-- **Multi-criteria sorting** by name, artist, album, duration, or popularity (ascending/descending)
+- **Multi-criteria sorting** by name, artist, album, or duration (ascending/descending)
 - **Smart Sort (auto-DJ)** - reorder for *flow*, not just alphabetically:
   - **Flow** - greedy nearest-neighbour on track energy for smooth transitions
   - **Build-up** - energy ramps up across the playlist
@@ -188,7 +188,7 @@ The MCP server exposes the following tools, usable from any MCP client or the we
 |---|---|
 | `get_playlists()` | List all your playlists |
 | `get_playlist_tracks(playlist_id)` | Get all tracks in a playlist |
-| `sort_playlist(playlist_id, sort_by, order)` | Sort by name / artist / album / duration_ms / popularity / release_date |
+| `sort_playlist(playlist_id, sort_by, order)` | Sort by name / artist / album / duration_ms / release_date |
 | `reorder_playlist_track(playlist_id, range_start, insert_before)` | Move a single track by index |
 | `save_playlist_order(playlist_id, track_uris)` | Overwrite playlist with a new URI order |
 | `remove_tracks_from_playlist(playlist_id, track_uris)` | Remove specific tracks |

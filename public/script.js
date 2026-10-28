@@ -651,7 +651,6 @@ function sortTracks(arr, feature, order) {
       case 'artist':      valA = (a.artists?.[0] || '').toLowerCase(); valB = (b.artists?.[0] || '').toLowerCase(); break;
       case 'album':       valA = a.album?.toLowerCase()         || ''; valB = b.album?.toLowerCase()         || ''; break;
       case 'duration_ms': valA = a.duration_ms || 0;                   valB = b.duration_ms || 0;                   break;
-      case 'popularity':  valA = a.popularity  || 0;                   valB = b.popularity  || 0;                   break;
       default: return 0;
     }
     if (valA < valB) return order === 'asc' ? -1 : 1;
@@ -1475,9 +1474,6 @@ function groupByGenre(tracks) {
     return groups[b].length - groups[a].length;
   });
   const out = [];
-  for (const k of keys) {
-    groups[k].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-    out.push(...groups[k]);
-  }
+  for (const k of keys) out.push(...groups[k]);
   return out;
 }

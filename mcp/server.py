@@ -14,71 +14,56 @@ mcp = FastMCP("spotify-mcp-server")
 
 @mcp.tool()
 def play() -> str:
-    """Resume the current track."""
     sp.start_playback()
     return "Playing the current track"
 
 @mcp.tool()
 def pause() -> str:
-    """Pause the current track."""
     sp.pause_playback()
     return "Paused the current track"
 
 @mcp.tool()
 def next_track() -> str:
-    """Skip to the next track."""
     sp.next_track()
     return "Skipped to the next track"
 
 @mcp.tool()
 def previous_track() -> str:
-    """Return to the previous track."""
     sp.previous_track()
     return "Returned to the previous track"
 
 @mcp.tool()
 def set_shuffle(enabled: bool) -> str:
-    """Enable or disable shuffle."""
     sp.shuffle(enabled)
     return f"Shuffle {'enabled' if enabled else 'disabled'}"
 
 @mcp.tool()
 def repeat() -> str:
-    """Repeat the current playlist/album context."""
     sp.repeat("context")
     return "Repeat context enabled"
 
 @mcp.tool()
 def repeat_track() -> str:
-    """Repeat the current track."""
     sp.repeat("track")
     return "Repeat track enabled"
 
 @mcp.tool()
 def repeat_off() -> str:
-    """Turn off repeat."""
     sp.repeat("off")
     return "Repeat turned off"
 
 @mcp.tool()
 def set_volume(volume_percent: int) -> str:
-    """Set playback volume (0-100)."""
     sp.volume(max(0, min(100, volume_percent)))
     return f"Volume set to {volume_percent}%"
 
 @mcp.tool()
 def seek(position_ms: int) -> str:
-    """Seek to a position (in milliseconds) within the current track."""
     sp.seek_track(max(0, position_ms))
     return f"Seeked to {position_ms}ms"
 
 @mcp.tool()
 def get_queue() -> dict:
-    """
-    Get the user's playback queue.
-    Returns the currently playing track and a list of upcoming tracks
-    (name, artists, image, uri).
-    """
     def _fmt(t):
         if not t:
             return None
@@ -99,35 +84,26 @@ def get_queue() -> dict:
 
 @mcp.tool()
 def is_track_saved(track_id: str) -> dict:
-    """Check whether a track is saved in the user's Liked Songs."""
     result = sp.current_user_saved_tracks_contains([track_id])
     return {"saved": bool(result and result[0])}
 
 @mcp.tool()
 def save_track(track_id: str) -> str:
-    """Add a track to the user's Liked Songs."""
     sp.current_user_saved_tracks_add([track_id])
     return "Track saved to Liked Songs"
 
 @mcp.tool()
 def remove_saved_track(track_id: str) -> str:
-    """Remove a track from the user's Liked Songs."""
     sp.current_user_saved_tracks_delete([track_id])
     return "Track removed from Liked Songs"
 
 @mcp.tool()
 def add_track_to_playlist(playlist_id: str, track_uri: str) -> str:
-    """Add a single track to a playlist by URI."""
     sp.playlist_add_items(playlist_id, [track_uri])
     return f"Added track to playlist {playlist_id}"
 
 @mcp.tool()
 def play_tracks(track_uris: list[str]) -> str:
-    """
-    Start playback from an explicit, ordered list of track URIs.
-    Used by the queue editor to 'play from here' and to apply a reordered queue.
-    Playback begins at the first URI; the rest become the upcoming queue.
-    """
     if not track_uris:
         return "No tracks provided."
     sp.start_playback(uris=track_uris)
@@ -135,7 +111,6 @@ def play_tracks(track_uris: list[str]) -> str:
 
 @mcp.tool()
 def play_album(album_name: str) -> str:
-    """Play an album by name."""
     results = sp.search(q=f"album:{album_name}", type="album")
     if results["albums"]["items"]:
         album_id = results["albums"]["items"][0]["id"]
@@ -145,7 +120,6 @@ def play_album(album_name: str) -> str:
 
 @mcp.tool()
 def play_track(track_name: str) -> str:
-    """Play a track by name."""
     results = sp.search(q=f"track:{track_name}", type="track")
     if results["tracks"]["items"]:
         track = results["tracks"]["items"][0]
@@ -156,17 +130,13 @@ def play_track(track_name: str) -> str:
 
 @mcp.tool()
 def get_playlists() -> list[dict]:
-    """
-    Get all of the current user's playlists.
-    Returns a list of dicts with id, name, track_count, owner, public, and image.
-    """
     playlists = []
     result = sp.current_user_playlists(limit=50)
     while result:
         for p in result["items"]:
             if not p:
                 continue
-            track_count = (p.get("tracks") or {}).get("total", 0)
+            track_count = (p.get("items") or p.get("tracks") or {}).get("total", 0)
             images = p.get("images") or []
             image_url = images[0]["url"] if images else None
             playlists.append({
@@ -182,11 +152,6 @@ def get_playlists() -> list[dict]:
 
 @mcp.tool()
 def get_playlist_tracks(playlist_id: str) -> list[dict]:
-    """
-    Get all tracks in a playlist.
-    Returns a list of dicts with uri, id, name, artists (list of strings),
-    album, release_date, duration_ms, popularity, spotify_url, image.
-    """
     tracks = []
     result = sp.playlist_items(playlist_id, limit=100)
     while result:
@@ -208,7 +173,7 @@ def get_playlist_tracks(playlist_id: str) -> list[dict]:
                 "album": album.get("name", ""),
                 "release_date": album.get("release_date", ""),
                 "duration_ms": t.get("duration_ms", 0),
-                "popularity": t.get("popularity", 0),
+                "popularity": t.get("popularity"),
                 "spotify_url": t.get("external_urls", {}).get("spotify", ""),
                 "image": thumb,
                 "image_full": full_img,
@@ -218,28 +183,11 @@ def get_playlist_tracks(playlist_id: str) -> list[dict]:
 
 @mcp.tool()
 def reorder_playlist_track(playlist_id: str, range_start: int, insert_before: int) -> str:
-    """
-    Move a track (or block of tracks) within a playlist.
-
-    Args:
-        playlist_id: Spotify playlist ID.
-        range_start: Zero-based index of the track to move.
-        insert_before: Zero-based index of the position to insert before.
-    """
     sp.playlist_reorder_items(playlist_id, range_start=range_start, insert_before=insert_before)
     return f"Moved track at position {range_start} to before position {insert_before}"
 
 @mcp.tool()
 def save_playlist_order(playlist_id: str, track_uris: list[str]) -> str:
-    """
-    Overwrite a playlist's track order with the given list of URIs.
-    Mirrors the 'Save Changes' button from SpotifySortTool.
-    Sends tracks in batches of 100 (Spotify API limit).
-
-    Args:
-        playlist_id: Spotify playlist ID.
-        track_uris: Full ordered list of Spotify track URIs (e.g. spotify:track:xxx).
-    """
     if not track_uris:
         return "No tracks provided-> playlist not modified."
     sp.playlist_replace_items(playlist_id, track_uris[:100])
@@ -249,13 +197,6 @@ def save_playlist_order(playlist_id: str, track_uris: list[str]) -> str:
 
 @mcp.tool()
 def remove_tracks_from_playlist(playlist_id: str, track_uris: list[str]) -> str:
-    """
-    Remove specific tracks from a playlist by URI.
-
-    Args:
-        playlist_id: Spotify playlist ID.
-        track_uris: List of Spotify track URIs to remove.
-    """
     if not track_uris:
         return "No URIs provided-> nothing removed."
     sp.playlist_remove_all_occurrences_of_items(playlist_id, track_uris)
@@ -263,10 +204,6 @@ def remove_tracks_from_playlist(playlist_id: str, track_uris: list[str]) -> str:
 
 @mcp.tool()
 def remove_duplicate_tracks(playlist_id: str) -> str:
-    """
-    Remove duplicate tracks from a playlist (keeps first occurrence).
-    Mirrors the 'Remove Duplicates' button from SpotifySortTool.
-    """
     tracks = get_playlist_tracks(playlist_id)
     seen = set()
     unique_uris = []
@@ -284,16 +221,9 @@ def remove_duplicate_tracks(playlist_id: str) -> str:
 
 @mcp.tool()
 def sort_playlist(playlist_id: str, sort_by: str = "name", order: str = "asc") -> str:
-    """
-    Sort a playlist by a given field and save the new order to Spotify.
-    Mirrors multi-criteria sort from SpotifySortTool.
-
-    Args:
-        playlist_id: Spotify playlist ID.
-        sort_by: Field to sort by. Options: name, artist, album, duration_ms, popularity, release_date.
-        order: Sort direction-> 'asc' or 'desc'.
-    """
-    valid_fields = {"name", "artist", "album", "duration_ms", "popularity", "release_date"}
+    valid_fields = {"name", "artist", "album", "duration_ms", "release_date"}
+    if sort_by == "popularity":
+        return "Spotify no longer shares track popularity, so playlists can't be sorted by it."
     if sort_by not in valid_fields:
         return f"Invalid sort field '{sort_by}'. Choose from: {', '.join(valid_fields)}"
     if order not in {"asc", "desc"}:
@@ -321,20 +251,7 @@ def sort_playlist(playlist_id: str, sort_by: str = "name", order: str = "asc") -
 
 @mcp.tool()
 def create_playlist_from_tracks(name: str, track_uris: list[str], public: bool = False, description: str = "", cover_image_url: str = "") -> str:
-    """
-    Create a new playlist with the given tracks.
-    Mirrors 'Save as New Playlist' from SpotifySortTool.
-
-    Args:
-        name: Name for the new playlist.
-        track_uris: List of Spotify track URIs to add.
-        public: Whether the playlist should be public (default False).
-        description: Optional playlist description.
-        cover_image_url: Optional image URL to copy as the new playlist's cover.
-    """
-    user = sp.current_user()
-    playlist = sp.user_playlist_create(
-        user["id"],
+    playlist = sp.current_user_playlist_create(
         name,
         public=public,
         description=description or "Created with Spotify MCP",
@@ -355,14 +272,6 @@ def create_playlist_from_tracks(name: str, track_uris: list[str], public: bool =
 
 @mcp.tool()
 def get_track_genres(artist: str, track: str) -> list[str]:
-    """
-    Fetch genre tags for a track from Last.fm (mirrors SpotifySortTool genre tagging).
-    Requires LASTFM_API_KEY environment variable.
-
-    Args:
-        artist: Artist name.
-        track: Track name.
-    """
     api_key = settings.LASTFM_API_KEY
     if not api_key:
         return ["LASTFM_API_KEY not set in environment"]
@@ -381,10 +290,6 @@ def get_track_genres(artist: str, track: str) -> list[str]:
 
 @mcp.tool()
 def get_current_playback() -> dict:
-    """
-    Get what's currently playing on Spotify.
-    Returns track name, artist, album, image, progress, volume, shuffle/repeat state.
-    """
     data = sp.current_playback()
     if not data or not data.get("item"):
         return {"playing": False, "track": None}
@@ -411,10 +316,6 @@ def get_current_playback() -> dict:
 
 @mcp.tool()
 def get_user_profile() -> dict:
-    """
-    Get the current user's Spotify profile information.
-    Returns display_name, user_id, follower count, profile image, and external URLs.
-    """
     user = sp.current_user()
     if not user:
         return {"error": "Could not fetch user profile"}

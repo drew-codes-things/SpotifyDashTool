@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -35,13 +36,6 @@ _auth_manager = SpotifyOAuth(
 )
 
 def _do_oauth():
-    """If no cached token exists, spin up a local HTTP server to catch the
-    Spotify callback automatically instead of requiring a manual URL paste.
-    
-    Note: webbrowser.open() is NOT called - this fails in headless/SSH environments.
-    If running in such an environment, manually visit the auth_url printed to console.
-    When using this server via the Node.js backend, the backend handles OAuth.
-    """
     if _auth_manager.get_cached_token():
         return
 
@@ -66,12 +60,12 @@ def _do_oauth():
     server.timeout = 120
 
     auth_url = _auth_manager.get_authorize_url()
-    print(f"\n[MCP Auth Required] Paste this URL in your browser:\n{auth_url}\n")
+    print(f"\n[MCP Auth Required] Paste this URL in your browser:\n{auth_url}\n", file=sys.stderr)
 
     try:
         webbrowser.open(auth_url)
     except Exception as e:
-        print(f"[MCP] Could not auto-open browser ({e}). Waiting for manual authorization...")
+        print(f"[MCP] Could not auto-open browser ({e}). Waiting for manual authorization...", file=sys.stderr)
 
     max_wait_seconds = 600
     waited_seconds = 0

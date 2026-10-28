@@ -1,7 +1,6 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const express = require('express');
 const axios = require('axios');
-const cors = require('cors');
 const path = require('path');
 const { callTool, ensureInitialized } = require('./mcp-bridge');
 
@@ -9,8 +8,14 @@ const app = express();
 const PORT = 4000;
 const HOST = '127.0.0.1';
 
-app.use(cors());
 app.use(express.json());
+
+app.use('/api', (req, res, next) => {
+  if (req.method === 'POST' && !req.is('application/json')) {
+    return res.status(415).json({ error: 'API requests must be JSON.' });
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, '../public')));
 
 const {
@@ -107,7 +112,7 @@ app.get('/api/playlists', async (req, res) => {
 
   try {
     const playlists = [];
-    let url = 'https://api.spotify.com/v1/me/playlists?limit=50&fields=next,items(id,name,owner,public,images,tracks)';
+    let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
 
     while (url) {
       const { data } = await axios.get(url, {
@@ -117,14 +122,14 @@ app.get('/api/playlists', async (req, res) => {
       for (const p of data.items || []) {
         if (!p) continue;
         const images = p.images || [];
-        let trackTotal = p.tracks?.total;
+        let trackTotal = p.items?.total ?? p.tracks?.total;
 
         if (trackTotal === undefined || trackTotal === null) {
           try {
-            const fullPlaylist = await axios.get(`https://api.spotify.com/v1/playlists/${p.id}?fields=tracks(total)`, {
+            const fullPlaylist = await axios.get(`https://api.spotify.com/v1/playlists/${p.id}?fields=items(total),tracks(total)`, {
               headers: { Authorization: authHeader },
             });
-            trackTotal = fullPlaylist.data?.tracks?.total ?? 0;
+            trackTotal = fullPlaylist.data?.items?.total ?? fullPlaylist.data?.tracks?.total ?? 0;
           } catch (detailErr) {
             console.warn(`Could not fetch full details for playlist ${p.id}:`, detailErr.message);
             trackTotal = 0;
