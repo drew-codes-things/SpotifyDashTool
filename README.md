@@ -26,7 +26,7 @@ The MCP server can also be used standalone with any MCP-compatible client (Claud
 
 > [!IMPORTANT]
 > **Dual-auth model.** There are two independent Spotify auth paths, and they must be the **same account**:
-> 1. **Browser OAuth** (PKCE) - used only for the frontend's direct read calls (`/api/playlists`, `/api/tracks`, `/api/audio-features`) and as the app's login gate.
+> 1. **Browser OAuth** (PKCE) - used only for the frontend's direct read calls (`/api/playlists`, `/api/tracks`) and as the app's login gate.
 > 2. **MCP server (spotipy)** - authenticates itself from the shared root `.env` and its own `mcp/.spotipyoauthcache`; this is what actually performs every playlist/playback/library action.
 >
 > The frontend no longer passes its browser token into MCP calls (the MCP server ignored it). Both paths read the same `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` from the single root `.env`, so point both at the one account.
@@ -142,13 +142,9 @@ The UI is a three-column layout: **user profile** (left), **playlists + track ed
 ### Playlists & track editor
 - **Drag & drop** reordering of tracks within a playlist
 - **Multi-criteria sorting** by name, artist, album, or duration (ascending/descending)
-- **Smart Sort (auto-DJ)** - reorder for *flow*, not just alphabetically:
-  - **Flow** - greedy nearest-neighbour on track energy for smooth transitions
-  - **Build-up** - energy ramps up across the playlist
-  - **Group by genre** - clusters by Last.fm genre, biggest groups first
-
-  Flow/Build-up use Spotify's audio-features; if unavailable for your app they
-  fall back to genre grouping.
+- **Smart Sort** - group by genre: clusters tracks by Last.fm genre, biggest groups first
+  (Spotify no longer gives apps audio features, so the old energy-based Flow and
+  Build-up orders are gone)
 - **Undo / Redo** - every reorder, sort, shuffle, or removal is reversible
   (buttons or `Ctrl/Cmd+Z` / `Ctrl+Y` / `Ctrl+Shift+Z`); history resets per playlist
 - **Random shuffle** of the current playlist
@@ -312,7 +308,6 @@ SpotifySortTool/
 | `POST` | `/api/refresh` | Refreshes an expired access token |
 | `GET` | `/api/playlists` | Lists playlists directly from Spotify (accurate track counts + images) |
 | `GET` | `/api/tracks/:trackId` | Fetches a single track's details from Spotify |
-| `GET` | `/api/audio-features` | Batched audio-features (tempo/energy) for Smart Sort; may 403 on newer apps |
 | `GET` | `/api/genres` | Fetches genre tags from Last.fm (falls back to direct HTTP if MCP fails) |
 | `POST` | `/api/mcp/:tool` | Calls any MCP tool by name with `{ args: { ... } }` in the body |
 

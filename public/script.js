@@ -147,7 +147,7 @@ if (smartSortSelect)
   smartSortSelect.addEventListener('change', () => {
     const mode = smartSortSelect.value;
     smartSortSelect.value = '';
-    if (mode) smartSort(mode);
+    if (mode === 'genre') smartSort();
   });
 
 document.addEventListener('keydown', (e) => {
@@ -890,7 +890,7 @@ function openTrackModal(uriOrTrack) {
       : '<span class="text-red-400 text-xs">Loading...</span>';
   }
 
-  const featuresEl = document.getElementById('modalAudioFeatures');
+  const featuresEl = document.getElementById('modalTrackStats');
   if (featuresEl) {
     featuresEl.innerHTML = track.popularity != null
       ? `<span class="text-red-300">Popularity</span>: ${track.popularity}/100`
@@ -1388,27 +1388,12 @@ function closeModal(id) {
   if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
 }
 
-async function smartSort(mode) {
+async function smartSort() {
   if (!displayedTracks.length) { toast('Load a playlist first.'); return; }
   showLoading();
   try {
-    let ordered;
-    if (mode === 'genre') {
-      await loadAllGenres();
-      ordered = groupByGenre(displayedTracks);
-    } else {
-      const feats = await fetchAudioFeatures(displayedTracks);
-      if (Object.keys(feats).length === 0) {
-        await loadAllGenres();
-        ordered = groupByGenre(displayedTracks);
-        toast('Spotify audio features are unavailable for this app - grouped by genre instead.');
-      } else {
-        const withE = displayedTracks.map(t => ({ t, energy: feats[t.id]?.energy ?? 0.5 }));
-        ordered = mode === 'buildup'
-          ? withE.sort((a, b) => a.energy - b.energy).map(x => x.t)
-          : flowOrder(withE);
-      }
-    }
+    await loadAllGenres();
+    const ordered = groupByGenre(displayedTracks);
     applyReorder(ordered);
   } catch (err) {
     toast(`Smart sort failed: ${err.message}`);
@@ -1424,42 +1409,6 @@ function applyReorder(orderedTracks) {
   if (filterInput) filterInput.value = '';
   renderTracks(displayedTracks);
   updatePlaylistStats();
-}
-
-async function fetchAudioFeatures(tracks) {
-  const token = getToken();
-  if (!token) return {};
-  const ids = tracks.map(t => t.id).filter(Boolean);
-  const map = {};
-  for (let i = 0; i < ids.length; i += 100) {
-    const batch = ids.slice(i, i + 100);
-    try {
-      const res = await fetch(`/api/audio-features?ids=${batch.join(',')}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      for (const f of (data.audio_features || [])) {
-        if (f && f.id) map[f.id] = f;
-      }
-    } catch {}
-  }
-  return map;
-}
-
-function flowOrder(items) {
-  const pool = [...items].sort((a, b) => a.energy - b.energy);
-  const result = [pool.shift()];
-  while (pool.length) {
-    const cur = result[result.length - 1].energy;
-    let bestIdx = 0, bestDiff = Infinity;
-    for (let k = 0; k < pool.length; k++) {
-      const d = Math.abs(pool[k].energy - cur);
-      if (d < bestDiff) { bestDiff = d; bestIdx = k; }
-    }
-    result.push(pool.splice(bestIdx, 1)[0]);
-  }
-  return result.map(x => x.t);
 }
 
 function groupByGenre(tracks) {

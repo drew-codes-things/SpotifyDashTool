@@ -217,31 +217,6 @@ app.get('/api/tracks/:trackId', async (req, res) => {
   }
 });
 
-app.get('/api/audio-features', async (req, res) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ error: 'Missing Authorization header' });
-
-  const ids = String(req.query.ids || '').split(',').filter(Boolean).slice(0, 100);
-  if (!ids.length) return res.json({ audio_features: [] });
-
-  try {
-    const { data } = await axios.get(
-      `https://api.spotify.com/v1/audio-features?ids=${ids.join(',')}`,
-      { headers: { Authorization: authHeader } }
-    );
-    res.json(data);
-  } catch (err) {
-    const status = err.response?.status;
-    if (status === 403 || status === 404) {
-      return res.json({ audio_features: [] });
-    }
-    console.error('GET /api/audio-features error:', err.response?.data || err.message);
-    res.status(status || 500).json({
-      error: err.response?.data?.error?.message || err.message,
-    });
-  }
-});
-
 app.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
 });
