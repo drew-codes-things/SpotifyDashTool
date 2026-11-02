@@ -313,7 +313,7 @@ function toast(message, type = 'info') {
     error:   'bg-red-900 border-red-600',
   };
   const el = document.createElement('div');
-  el.className = `pointer-events-auto px-4 py-2 rounded-lg border text-sm text-red-50 shadow-lg max-w-sm text-center transition-opacity duration-300 ${colors[type] || colors.info}`;
+  el.className = `pointer-events-auto px-4 py-2 rounded-lg border text-sm text-neutral-100 shadow-lg max-w-sm text-center transition-opacity duration-300 ${colors[type] || colors.info}`;
   el.textContent = String(message);
   container.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
@@ -406,13 +406,13 @@ async function loadPlaylists() {
            </div>`
       }
       <div class="track-preview-overlay">
-        <div class="font-bold text-red-200 text-sm mb-2 truncate">${safeName}</div>
+        <div class="font-bold text-neutral-300 text-sm mb-2 truncate">${safeName}</div>
         <div id="preview-tracks-${p.id}" class="track-preview-list text-xs space-y-1 overflow-y-auto">
           <div class="text-gray-400 text-center py-2">Loading tracks...</div>
         </div>
       </div>
       <div class="p-4 min-w-0 relative z-10 bg-gradient-to-t from-black/60 to-transparent">
-        <div class="font-semibold text-red-100 truncate">${safeName}</div>
+        <div class="font-semibold text-neutral-100 truncate">${safeName}</div>
         <div class="text-xs text-red-400 opacity-50">by ${safeOwner}</div>
       </div>
     </button>
@@ -893,7 +893,7 @@ function openTrackModal(uriOrTrack) {
   const featuresEl = document.getElementById('modalTrackStats');
   if (featuresEl) {
     featuresEl.innerHTML = track.popularity != null
-      ? `<span class="text-red-300">Popularity</span>: ${track.popularity}/100`
+      ? `<span class="text-neutral-400">Popularity</span>: ${track.popularity}/100`
       : '';
   }
 
@@ -1010,8 +1010,8 @@ function renderTracks(tracks) {
       <input type="checkbox" class="track-checkbox w-4 h-4 flex-shrink-0" data-uri="${safeUri}" onchange="updateSelectedCount()">
       ${thumbHtml}
       <div class="track-info min-w-0 flex-1 cursor-pointer" data-uri="${safeUri}">
-        <div class="font-medium truncate text-red-100">${escHtml(t.name || 'Unknown')}</div>
-        <div class="text-sm text-red-300 truncate">${escHtml(artist)}</div>
+        <div class="font-medium truncate text-neutral-100">${escHtml(t.name || 'Unknown')}</div>
+        <div class="text-sm text-neutral-400 truncate">${escHtml(artist)}</div>
         <div class="genre-tag mt-0.5">${genreBadges}</div>
       </div>
       <div class="text-sm text-red-400 flex-shrink-0">${duration}</div>
@@ -1157,7 +1157,7 @@ function renderQueue() {
       <span class="queue-drag cursor-grab text-red-700 hover:text-red-400 select-none px-0.5" title="Drag to reorder">⠿</span>
       ${thumb}
       <div class="min-w-0 flex-1 cursor-pointer" data-queue-index="${i}" title="Play from here">
-        <div class="text-xs font-medium text-red-100 truncate">${escHtml(t.name || 'Unknown')}</div>
+        <div class="text-xs font-medium text-neutral-100 truncate">${escHtml(t.name || 'Unknown')}</div>
         <div class="text-xs text-red-400/70 truncate">${escHtml(artist)}</div>
       </div>
       <button class="queue-play text-red-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1" data-queue-index="${i}" title="Play from here" aria-label="Play from here">
@@ -1315,7 +1315,7 @@ function openAddToPlaylistModal() {
         ${m.image
           ? `<img src="${m.image}" alt="" class="w-8 h-8 rounded object-cover flex-shrink-0">`
           : '<div class="w-8 h-8 rounded bg-red-900/40 flex-shrink-0"></div>'}
-        <span class="text-sm text-red-100 truncate">${escHtml(m.name)}</span>
+        <span class="text-sm text-neutral-100 truncate">${escHtml(m.name)}</span>
       </button>
     `).join('');
     list.querySelectorAll('.add-to-pl-item').forEach(btn => {
@@ -1369,7 +1369,7 @@ async function openGenreStats() {
     const pct = Math.round((count / max) * 100);
     return `<div>
       <div class="flex justify-between text-xs mb-1">
-        <span class="text-red-200 capitalize">${escHtml(genre)}</span>
+        <span class="text-neutral-300 capitalize">${escHtml(genre)}</span>
         <span class="text-red-400/70">${count}</span>
       </div>
       <div class="w-full bg-gray-700/30 rounded-full h-2">
