@@ -3,7 +3,6 @@ from mcp.server.fastmcp import FastMCP
 import base64
 import logging
 import requests
-import os
 from settings import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -321,8 +320,7 @@ def get_user_profile() -> dict:
         return {"error": "Could not fetch user profile"}
     
     images = user.get("images") or []
-    image_url = images[0]["url"] if images else None
-    
+
     return {
         "display_name": user.get("display_name") or user.get("id"),
         "user_id": user.get("id"),
