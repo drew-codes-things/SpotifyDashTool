@@ -103,6 +103,11 @@ let genreLoadToken = 0;
   updateLoginBtn();
   restoreSortUI();
 
+  const storedExpiry = parseInt(localStorage.getItem('token_expiry') || '0', 10);
+  if (localStorage.getItem('spotify_refresh_token') && Date.now() > storedExpiry) {
+    await refreshAccessToken().catch(logoutSilently);
+  }
+
   const token = getToken();
   if (token) {
     if (loginOverlay) loginOverlay.classList.add('hidden');
@@ -242,9 +247,18 @@ async function startAuth() {
   const scopes = [
     'playlist-read-private', 'playlist-read-collaborative',
     'playlist-modify-public', 'playlist-modify-private', 'user-read-currently-playing',
-  ].join('%20');
-  window.location.href =
-    `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&show_dialog=true`;
+  ].join(' ');
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('spotify_auth_state', state);
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: scopes,
+    state,
+    show_dialog: 'true',
+  });
+  window.location.href = `https://accounts.spotify.com/authorize?${params}`;
 }
 
 async function handleCallback() {
@@ -258,6 +272,13 @@ async function handleCallback() {
     return;
   }
   if (!code) return;
+  const expectedState = sessionStorage.getItem('spotify_auth_state');
+  sessionStorage.removeItem('spotify_auth_state');
+  if (!expectedState || params.get('state') !== expectedState) {
+    toast('Authorization failed: the login response did not match this session. Please try again.');
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
   try {
     const res  = await fetch('/api/token', {
       method: 'POST',
@@ -395,10 +416,10 @@ async function loadPlaylists() {
       return `
     <button
       class="playlist-item relative card-hover w-full text-left p-0 rounded-xl glass-effect hover:border hover:border-red-500/30 transition-all duration-300 flex flex-col overflow-hidden group"
-      data-playlist-id="${p.id}"
+      data-playlist-id="${escHtml(p.id)}"
     >
       ${p.image
-        ? `<img src="${p.image}" alt="${safeName}" class="w-full h-36 object-cover group-hover:opacity-30 transition-opacity" loading="lazy">`
+        ? `<img src="${escHtml(p.image)}" alt="${safeName}" class="w-full h-36 object-cover group-hover:opacity-30 transition-opacity" loading="lazy">`
         : `<div class="w-full h-36 bg-gradient-to-br from-red-900/60 to-gray-800 flex items-center justify-center group-hover:opacity-30 transition-opacity">
              <svg class="w-12 h-12 text-red-400 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
@@ -1000,7 +1021,7 @@ function renderTracks(tracks) {
     const artist   = t.artists?.map(a => String(a)).join(', ') || 'Unknown Artist';
     const duration = formatDuration(t.duration_ms);
     const thumbHtml = t.image
-      ? `<img src="${t.image}" alt="" class="w-10 h-10 rounded object-cover flex-shrink-0" loading="lazy">`
+      ? `<img src="${escHtml(t.image)}" alt="" class="w-10 h-10 rounded object-cover flex-shrink-0" loading="lazy">`
       : '<div class="w-10 h-10 rounded bg-red-900/40 flex-shrink-0 flex items-center justify-center"><svg class="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg></div>';
     const genreBadges = t.genre_text
       ? t.genre_text.split(', ').map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
@@ -1046,7 +1067,8 @@ function displayNowPlaying(data) {
       artworkEl.src = data.image;
       artworkEl.style.display = '';
     } else {
-      artworkEl.src = '';
+      artworkEl.removeAttribute('src');
+      artworkEl.style.display = 'none';
     }
   }
 

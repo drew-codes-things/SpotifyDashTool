@@ -11,3 +11,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+.spotipyoauthcache
+mcp/.spotipyoauthcache
+mcp/.venv/
+mcp/uv.lock

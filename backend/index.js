@@ -5,8 +5,8 @@ const path = require('path');
 const { callTool, ensureInitialized } = require('./mcp-bridge');
 
 const app = express();
-const PORT = 4000;
-const HOST = '127.0.0.1';
+const PORT = Number(process.env.PORT) || 4000;
+const HOST = process.env.HOST || '127.0.0.1';
 
 app.use(express.json());
 
@@ -41,7 +41,7 @@ app.get('/api/config', (req, res) => {
   res.json({
     spotifyClientId: SPOTIFY_CLIENT_ID,
     redirectUri: BACKEND_REDIRECT_URI,
-    lastfmApiKey: LASTFM_API_KEY || ''
+    lastfmEnabled: Boolean(LASTFM_API_KEY)
   });
 });
 

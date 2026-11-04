@@ -76,8 +76,14 @@ BACKEND_REDIRECT_URI=http://127.0.0.1:4000/callback
 # OAuth callback for the MCP server's internal listener (port 8080)
 MCP_REDIRECT_URI=http://127.0.0.1:8080/callback
 
+# Optional: Last.fm key for genre tagging. It stays on the server; the
+# browser is only told whether one is configured.
 LASTFM_API_KEY=your_lastfm_api_key
 TRANSPORT_PROTOCOL=stdio
+
+# Optional: where the backend listens (defaults shown)
+PORT=4000
+HOST=127.0.0.1
 ```
 
 ### 3. Install dependencies
@@ -89,6 +95,14 @@ cd backend && npm install && cd ..
 # MCP server
 cd mcp && pip install uv && uv sync && cd ..
 ```
+
+The UI's Tailwind stylesheet is pre-built and committed as `public/tailwind.css`, so nothing is loaded from a CDN at runtime. Only rebuild it after changing Tailwind classes in `public/index.html` or `public/script.js`:
+
+```bash
+cd backend && npm run build:css
+```
+
+(`npm run watch:css` rebuilds on every save while you work on the UI.)
 
 ### 4. Spotify Developer Dashboard
 
@@ -295,6 +309,9 @@ SpotifySortTool/
   public/
     index.html         Web UI
     script.js          Frontend logic - all Spotify calls go via /api/mcp/:tool
+    tailwind.css       Pre-built Tailwind stylesheet (npm run build:css in backend/)
+  css/input.css        Tailwind source
+  tailwind.config.js   Tailwind content paths
 ```
 
 ---
@@ -303,7 +320,7 @@ SpotifySortTool/
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/config` | Returns Spotify Client ID, Redirect URI, Last.fm key |
+| `GET` | `/api/config` | Returns Spotify Client ID, Redirect URI and whether a Last.fm key is configured (the key itself never leaves the server) |
 | `POST` | `/api/token` | Exchanges Spotify auth code for an access token |
 | `POST` | `/api/refresh` | Refreshes an expired access token |
 | `GET` | `/api/playlists` | Lists playlists directly from Spotify (accurate track counts + images) |

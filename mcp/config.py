@@ -25,12 +25,14 @@ SCOPE = (
 
 REDIRECT_URI = os.environ.get("MCP_REDIRECT_URI", "http://127.0.0.1:8080/callback")
 
+CACHE_PATH = Path(__file__).resolve().parent / ".spotipyoauthcache"
+
 _auth_manager = SpotifyOAuth(
     client_id=os.environ["SPOTIFY_CLIENT_ID"],
     client_secret=os.environ["SPOTIFY_CLIENT_SECRET"],
     redirect_uri=REDIRECT_URI,
     scope=SCOPE,
-    cache_path=".spotipyoauthcache",
+    cache_path=str(CACHE_PATH),
     open_browser=False,
 )
 

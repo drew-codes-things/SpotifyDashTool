@@ -80,6 +80,9 @@ function send(message) {
   mcpProcess.stdin.write(JSON.stringify(message) + '\n');
 }
 
+const INIT_TIMEOUT_MS = 15000;
+const TOOL_TIMEOUT_MS = 90000;
+
 function rpc(method, params = {}) {
   return new Promise((resolve, reject) => {
     const id = requestId++;
@@ -88,7 +91,7 @@ function rpc(method, params = {}) {
         pending.delete(id);
         reject(new Error(`MCP call timed out: ${method}`));
       }
-    }, 15000);
+    }, method === 'tools/call' ? TOOL_TIMEOUT_MS : INIT_TIMEOUT_MS);
     pending.set(id, { resolve, reject, timer });
     send({ jsonrpc: '2.0', id, method, params });
   });
