@@ -167,7 +167,7 @@ function tagsFrom(node) {
 app.get('/api/genres', async (req, res) => {
   const { artist, track } = req.query;
   if (!artist || !track || !LASTFM_API_KEY) return res.json({ tags: [] });
-  const base = `http://ws.audioscrobbler.com/2.0/?api_key=${LASTFM_API_KEY}&format=json&autocorrect=1`;
+  const base = `https://ws.audioscrobbler.com/2.0/?api_key=${LASTFM_API_KEY}&format=json&autocorrect=1`;
   try {
     const trackUrl = `${base}&method=track.getInfo&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}`;
     const { data } = await axios.get(trackUrl, { timeout: 8000 });

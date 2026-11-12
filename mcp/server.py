@@ -291,18 +291,14 @@ def get_track_genres(artist: str, track: str) -> list[str]:
     api_key = settings.LASTFM_API_KEY
     if not api_key:
         return ["LASTFM_API_KEY not set in environment"]
-    url = (
-        f"http://ws.audioscrobbler.com/2.0/?method=track.getInfo"
-        f"&api_key={api_key}&artist={requests.utils.quote(artist)}"
-        f"&track={requests.utils.quote(track)}&format=json"
-    )
+    params = {"method": "track.getInfo", "api_key": api_key, "artist": artist, "track": track, "format": "json"}
     try:
-        resp = requests.get(url, timeout=5)
+        resp = requests.get("https://ws.audioscrobbler.com/2.0/", params=params, timeout=5)
         data = resp.json()
         tags = data.get("track", {}).get("toptags", {}).get("tag", [])
         return [t["name"] for t in tags[:5]]
     except Exception as e:
-        return [f"Error fetching genres: {e}"]
+        return [f"Error fetching genres: {type(e).__name__}"]
 
 @mcp.tool()
 def get_current_playback() -> dict:
