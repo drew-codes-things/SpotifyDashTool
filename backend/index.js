@@ -9,8 +9,11 @@ const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '127.0.0.1';
 const SPOTIFY_API_BASE = process.env.SPOTIFY_API_BASE || 'https://api.spotify.com/v1';
 const VERIFIED_TOKEN_TTL_MS = 60 * 1000;
+const JSON_BODY_LIMIT = '2mb';
+const PAYLOAD_TOO_LARGE = 413;
+const INTERNAL_SERVER_ERROR = 500;
 
-app.use(express.json());
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 app.use('/api', (req, res, next) => {
   if (req.method === 'POST' && !req.is('application/json')) {
@@ -283,6 +286,19 @@ app.get('/api/tracks/:trackId', async (req, res) => {
     console.error('GET /api/tracks/:trackId error:', err.response?.data || err.message);
     res.status(err.response?.status || 500).json({ error: err.message });
   }
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode || INTERNAL_SERVER_ERROR;
+  if (status === PAYLOAD_TOO_LARGE) {
+    return res.status(status).json({ error: `Request too large: the limit is ${JSON_BODY_LIMIT}.` });
+  }
+  if (status >= INTERNAL_SERVER_ERROR || !err.expose) {
+    console.error(`${req.method} ${req.path} failed:`, err.message);
+    return res.status(status).json({ error: 'Internal server error' });
+  }
+  res.status(status).json({ error: err.message });
 });
 
 app.listen(PORT, HOST, () => {
