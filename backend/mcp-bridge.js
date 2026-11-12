@@ -15,20 +15,47 @@ let restartAttempts = 0;
 const MAX_RESTART_ATTEMPTS = 5;
 const BASE_RESTART_DELAY_MS = 1000;
 
+function rejectPendingCalls(reason) {
+  for (const [, { reject, timer }] of pending) {
+    clearTimeout(timer);
+    reject(new Error(reason));
+  }
+  pending.clear();
+}
+
+function markBridgeOffline() {
+  mcpProcess = null;
+  rl = null;
+  initialized = false;
+  initPromise = null;
+}
+
 function startMcpProcess() {
   if (mcpProcess) return;
 
-  mcpProcess = spawn('uv', ['run', 'python', 'server.py'], {
+  const child = spawn('uv', ['run', 'python', 'server.py'], {
     cwd: MCP_DIR,
     stdio: ['pipe', 'pipe', 'inherit'],
     env: { ...process.env },
   });
+  mcpProcess = child;
 
-  mcpProcess.on('spawn', () => {
+  child.on('spawn', () => {
     restartAttempts = 0;
   });
 
-  rl = readline.createInterface({ input: mcpProcess.stdout });
+  child.on('error', (err) => {
+    console.error(`[mcp-bridge] Could not run the MCP server with uv: ${err.message}`);
+    if (mcpProcess === child) markBridgeOffline();
+    rejectPendingCalls(`MCP server could not start: ${err.message}`);
+  });
+
+  child.stdin.on('error', (err) => {
+    console.error(`[mcp-bridge] Writing to the MCP server failed: ${err.message}`);
+    rejectPendingCalls(`MCP server stopped accepting requests: ${err.message}`);
+  });
+
+  rl = readline.createInterface({ input: child.stdout });
 
   rl.on('line', (line) => {
     if (!line.trim()) return;
@@ -44,18 +71,11 @@ function startMcpProcess() {
     }
   });
 
-  mcpProcess.on('exit', (code) => {
+  child.on('exit', (code) => {
     console.error(`[mcp-bridge] MCP process exited with code ${code}`);
-    mcpProcess = null;
-    rl = null;
-    initialized = false;
-    initPromise = null;
-
-    for (const [, { reject, timer }] of pending) {
-      clearTimeout(timer);
-      reject(new Error('MCP process exited unexpectedly'));
-    }
-    pending.clear();
+    if (mcpProcess !== child) return;
+    markBridgeOffline();
+    rejectPendingCalls('MCP process exited unexpectedly');
 
     if (restartAttempts < MAX_RESTART_ATTEMPTS) {
       const delay = BASE_RESTART_DELAY_MS * Math.pow(2, restartAttempts);

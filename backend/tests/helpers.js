@@ -108,11 +108,16 @@ async function waitFor(predicate, timeoutMs) {
 async function callMcpTool(backend, tool, { token, args = {} } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(`${backend.baseUrl}/api/mcp/${tool}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ args }),
-  });
+  let response;
+  try {
+    response = await fetch(`${backend.baseUrl}/api/mcp/${tool}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ args }),
+    });
+  } catch (err) {
+    throw new Error(`MCP call to ${tool} got no response (${err.message}). Backend output:\n${backend.output}`);
+  }
   const text = await response.text();
   let body;
   try { body = JSON.parse(text); } catch { body = text; }
