@@ -1,8 +1,13 @@
 from config import sp
 from mcp.server.fastmcp import FastMCP
 import base64
+import json
 import logging
+import re
 import requests
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import NoReturn
 from urllib.parse import urlparse
 from settings import settings
 
@@ -186,30 +191,77 @@ def reorder_playlist_track(playlist_id: str, range_start: int, insert_before: in
     sp.playlist_reorder_items(playlist_id, range_start=range_start, insert_before=insert_before)
     return f"Moved track at position {range_start} to before position {insert_before}"
 
-def _count_items_that_cannot_be_rewritten(playlist_id: str) -> int:
-    count = 0
+PLAYLIST_WRITE_BATCH_SIZE = 100
+PLAYLIST_BACKUP_DIR = Path(__file__).resolve().parent / "playlist-backups"
+
+
+def _read_playlist_snapshot(playlist_id: str) -> tuple[list[str], int]:
+    uris = []
+    unsupported_count = 0
     result = sp.playlist_items(playlist_id, limit=100)
     while result:
         for entry in result["items"]:
             t = entry.get("item") or entry.get("track")
-            if t and (t.get("is_local") or t.get("type") == "episode"):
-                count += 1
+            if not t:
+                continue
+            if t.get("is_local") or t.get("type") == "episode":
+                unsupported_count += 1
+            elif t.get("uri"):
+                uris.append(t["uri"])
         result = sp.next(result) if result["next"] else None
-    return count
+    return uris, unsupported_count
+
+
+def _write_playlist_uris(playlist_id: str, track_uris: list[str]) -> None:
+    sp.playlist_replace_items(playlist_id, track_uris[:PLAYLIST_WRITE_BATCH_SIZE])
+    for i in range(PLAYLIST_WRITE_BATCH_SIZE, len(track_uris), PLAYLIST_WRITE_BATCH_SIZE):
+        sp.playlist_add_items(playlist_id, track_uris[i:i + PLAYLIST_WRITE_BATCH_SIZE])
+
+
+def _write_playlist_backup(playlist_id: str, track_uris: list[str]) -> Path:
+    safe_id = re.sub(r"[^A-Za-z0-9]", "_", playlist_id)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    PLAYLIST_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    backup_path = PLAYLIST_BACKUP_DIR / f"{safe_id}-{stamp}.json"
+    backup_path.write_text(json.dumps({"playlist_id": playlist_id, "track_uris": track_uris}, indent=2))
+    return backup_path
+
+
+def _restore_after_failed_save(playlist_id: str, original_uris: list[str], backup_path: Path, save_error: Exception) -> NoReturn:
+    try:
+        _write_playlist_uris(playlist_id, original_uris)
+    except Exception as restore_error:
+        logger.error(
+            "Saving playlist %s failed and the restore failed too; original URIs kept in %s", playlist_id, backup_path
+        )
+        raise RuntimeError(
+            f"Saving playlist {playlist_id} failed ({save_error}) and restoring its original order also failed "
+            f"({restore_error}). The playlist may be missing tracks. The original {len(original_uris)} track URIs "
+            f"are backed up in {backup_path}."
+        ) from restore_error
+    backup_path.unlink(missing_ok=True)
+    raise RuntimeError(
+        f"Saving playlist {playlist_id} failed ({save_error}). The playlist was restored to its original "
+        f"{len(original_uris)} tracks."
+    ) from save_error
+
 
 @mcp.tool()
 def save_playlist_order(playlist_id: str, track_uris: list[str]) -> str:
     if not track_uris:
         return "No tracks provided-> playlist not modified."
-    unsupported = _count_items_that_cannot_be_rewritten(playlist_id)
+    original_uris, unsupported = _read_playlist_snapshot(playlist_id)
     if unsupported:
         raise ValueError(
             f"This playlist has {unsupported} local file(s) or podcast episode(s) that can't be put back "
             "through the Spotify API, so saving a new order would delete them. Reorder it in the Spotify app instead."
         )
-    sp.playlist_replace_items(playlist_id, track_uris[:100])
-    for i in range(100, len(track_uris), 100):
-        sp.playlist_add_items(playlist_id, track_uris[i:i + 100])
+    backup_path = _write_playlist_backup(playlist_id, original_uris)
+    try:
+        _write_playlist_uris(playlist_id, track_uris)
+    except Exception as save_error:
+        _restore_after_failed_save(playlist_id, original_uris, backup_path, save_error)
+    backup_path.unlink(missing_ok=True)
     return f"Saved {len(track_uris)} tracks to playlist {playlist_id}"
 
 @mcp.tool()

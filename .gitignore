@@ -15,3 +15,4 @@ node_modules/
 mcp/.spotipyoauthcache
 mcp/.venv/
 mcp/uv.lock
+mcp/playlist-backups/
