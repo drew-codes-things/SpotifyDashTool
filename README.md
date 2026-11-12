@@ -26,10 +26,10 @@ The MCP server can also be used standalone with any MCP-compatible client (Claud
 
 > [!IMPORTANT]
 > **Dual-auth model.** There are two independent Spotify auth paths, and they must be the **same account**:
-> 1. **Browser OAuth** (PKCE) - used only for the frontend's direct read calls (`/api/playlists`, `/api/tracks`) and as the app's login gate.
+> 1. **Browser OAuth** (PKCE) - used for the frontend's direct read calls (`/api/playlists`, `/api/tracks`), as the app's login gate, and to authorise every `/api/mcp/*` call.
 > 2. **MCP server (spotipy)** - authenticates itself from the shared root `.env` and its own `mcp/.spotipyoauthcache`; this is what actually performs every playlist/playback/library action.
 >
-> The frontend no longer passes its browser token into MCP calls (the MCP server ignored it). Both paths read the same `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` from the single root `.env`, so point both at the one account.
+> The frontend sends its browser token as `Authorization: Bearer <token>` on every `/api/mcp/*` call. The backend checks it against Spotify's `/v1/me` (cached for a minute per token) and refuses the call (401 or 403) unless it belongs to the account the MCP server uses. Both paths read the same `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` from the single root `.env`, so point both at the one account.
 
 > [!NOTE]
 > Spotify restricted their Web API in February/March 2026. Apps in Development Mode are limited to **25 manually allowlisted accounts**. You must add your own Spotify account to your app's allowlist in the [Developer Dashboard](https://developer.spotify.com/dashboard) before this will work.
@@ -326,7 +326,7 @@ SpotifySortTool/
 | `GET` | `/api/playlists` | Lists playlists directly from Spotify (accurate track counts + images) |
 | `GET` | `/api/tracks/:trackId` | Fetches a single track's details from Spotify |
 | `GET` | `/api/genres` | Fetches genre tags from Last.fm (falls back to direct HTTP if MCP fails) |
-| `POST` | `/api/mcp/:tool` | Calls any MCP tool by name with `{ args: { ... } }` in the body |
+| `POST` | `/api/mcp/:tool` | Calls any MCP tool by name with `{ args: { ... } }` in the body. Needs `Authorization: Bearer <Spotify access token>` for the MCP server's account |
 
 ---
 

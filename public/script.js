@@ -314,10 +314,11 @@ function logout() {
 }
 
 async function mcp(tool, args = {}) {
-  if (!getToken()) throw new Error('Not authenticated');
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated');
   const res  = await fetch(`/api/mcp/${tool}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ args }),
   });
   const data = await res.json();
@@ -444,7 +445,7 @@ async function loadPlaylists() {
         try {
           const res  = await fetch('/api/mcp/get_playlist_tracks', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
             body: JSON.stringify({ args: { playlist_id: playlistId } }),
           });
           const data   = await res.json();

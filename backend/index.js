@@ -7,6 +7,8 @@ const { callTool, ensureInitialized } = require('./mcp-bridge');
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '127.0.0.1';
+const SPOTIFY_API_BASE = process.env.SPOTIFY_API_BASE || 'https://api.spotify.com/v1';
+const VERIFIED_TOKEN_TTL_MS = 60 * 1000;
 
 app.use(express.json());
 
@@ -112,7 +114,7 @@ app.get('/api/playlists', async (req, res) => {
 
   try {
     const playlists = [];
-    let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+    let url = `${SPOTIFY_API_BASE}/me/playlists?limit=50`;
 
     while (url) {
       const { data } = await axios.get(url, {
@@ -126,7 +128,7 @@ app.get('/api/playlists', async (req, res) => {
 
         if (trackTotal === undefined || trackTotal === null) {
           try {
-            const fullPlaylist = await axios.get(`https://api.spotify.com/v1/playlists/${p.id}?fields=items(total),tracks(total)`, {
+            const fullPlaylist = await axios.get(`${SPOTIFY_API_BASE}/playlists/${p.id}?fields=items(total),tracks(total)`, {
               headers: { Authorization: authHeader },
             });
             trackTotal = fullPlaylist.data?.items?.total ?? fullPlaylist.data?.tracks?.total ?? 0;
@@ -188,7 +190,73 @@ app.get('/api/genres', async (req, res) => {
   }
 });
 
-app.post('/api/mcp/:tool', async (req, res) => {
+const verifiedTokens = new Map();
+let mcpAccountId = null;
+
+function bearerTokenFrom(req) {
+  const match = /^Bearer (\S+)$/.exec(req.headers.authorization || '');
+  return match ? match[1] : null;
+}
+
+function forgetExpiredTokens(now) {
+  for (const [token, entry] of verifiedTokens) {
+    if (entry.expiresAt <= now) verifiedTokens.delete(token);
+  }
+}
+
+async function spotifyUserIdForToken(token) {
+  const now = Date.now();
+  const cached = verifiedTokens.get(token);
+  if (cached && cached.expiresAt > now) return cached.userId;
+
+  const { data } = await axios.get(`${SPOTIFY_API_BASE}/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!data?.id) throw new Error('Spotify /me returned no user id');
+  forgetExpiredTokens(now);
+  verifiedTokens.set(token, { userId: data.id, expiresAt: now + VERIFIED_TOKEN_TTL_MS });
+  return data.id;
+}
+
+async function getMcpAccountId() {
+  if (mcpAccountId) return mcpAccountId;
+  const profile = await callTool('get_user_profile');
+  if (!profile?.user_id) throw new Error('MCP server did not report its Spotify account');
+  mcpAccountId = profile.user_id;
+  return mcpAccountId;
+}
+
+async function requireMcpAccountOwner(req, res, next) {
+  const token = bearerTokenFrom(req);
+  if (!token) return res.status(401).json({ error: 'Missing Spotify access token. Please log in again.' });
+
+  let userId;
+  try {
+    userId = await spotifyUserIdForToken(token);
+  } catch (err) {
+    const status = err.response?.status;
+    if (status === 401 || status === 403) {
+      return res.status(401).json({ error: 'Spotify rejected the access token. Please log in again.' });
+    }
+    console.error('MCP auth: could not verify the Spotify token:', err.message);
+    return res.status(502).json({ error: `Could not verify the Spotify login: ${err.message}` });
+  }
+
+  let accountId;
+  try {
+    accountId = await getMcpAccountId();
+  } catch (err) {
+    console.error('MCP auth: could not read the MCP account:', err.message);
+    return res.status(503).json({ error: `MCP server unavailable: ${err.message}` });
+  }
+
+  if (userId !== accountId) {
+    return res.status(403).json({ error: 'This Spotify login is not the account the MCP server controls.' });
+  }
+  next();
+}
+
+app.post('/api/mcp/:tool', requireMcpAccountOwner, async (req, res) => {
   const { tool } = req.params;
   const args = req.body?.args || {};
   try {
@@ -207,7 +275,7 @@ app.get('/api/tracks/:trackId', async (req, res) => {
     return res.status(401).json({ error: 'Missing authorization token' });
   }
   try {
-    const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
+    const response = await axios.get(`${SPOTIFY_API_BASE}/tracks/${trackId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     res.json(response.data);

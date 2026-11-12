@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "test": "node --test",
     "dev": "nodemon index.js",
     "build:css": "tailwindcss -c ../tailwind.config.js -i ../css/input.css -o ../public/tailwind.css --minify",
     "watch:css": "tailwindcss -c ../tailwind.config.js -i ../css/input.css -o ../public/tailwind.css --watch"
