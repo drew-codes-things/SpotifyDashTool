@@ -424,7 +424,7 @@ async function loadPlaylists() {
       }
       <div class="track-preview-overlay">
         <div class="font-semibold text-fg text-sm mb-2 truncate">${safeName}</div>
-        <div id="preview-tracks-${p.id}" class="track-preview-list text-xs space-y-1 overflow-y-auto">
+        <div id="preview-tracks-${escHtml(p.id)}" class="track-preview-list text-xs space-y-1 overflow-y-auto">
           <div class="text-faint text-center py-2">Loading tracks...</div>
         </div>
       </div>
@@ -1169,7 +1169,7 @@ function renderQueue() {
   queueList.innerHTML = currentQueue.map((t, i) => {
     const artist = t.artists?.join(', ') || 'Unknown';
     const thumb  = t.image
-      ? `<img src="${t.image}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
+      ? `<img src="${escHtml(t.image)}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
       : '<div class="w-8 h-8 rounded-md bg-raised flex-shrink-0"></div>';
     return `<div class="queue-item flex items-center gap-2 rounded-xl p-1 transition-colors group" data-uri="${escHtml(t.uri)}">
       <span class="queue-drag cursor-grab text-faint hover:text-fg select-none px-0.5" title="Drag to reorder">⠿</span>
@@ -1329,9 +1329,9 @@ function openAddToPlaylistModal() {
     list.innerHTML = '<p class="text-muted text-sm">No playlists loaded.</p>';
   } else {
     list.innerHTML = entries.map(([id, m]) => `
-      <button class="add-to-pl-item w-full text-left flex items-center gap-2 p-2 rounded-xl transition-colors" data-pl-id="${id}">
+      <button class="add-to-pl-item w-full text-left flex items-center gap-2 p-2 rounded-xl transition-colors" data-pl-id="${escHtml(id)}">
         ${m.image
-          ? `<img src="${m.image}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
+          ? `<img src="${escHtml(m.image)}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
           : '<div class="w-8 h-8 rounded-md bg-raised flex-shrink-0"></div>'}
         <span class="text-sm text-fg truncate">${escHtml(m.name)}</span>
       </button>
