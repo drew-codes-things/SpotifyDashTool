@@ -268,7 +268,8 @@ def save_playlist_order(playlist_id: str, track_uris: list[str]) -> str:
 def remove_tracks_from_playlist(playlist_id: str, track_uris: list[str]) -> str:
     if not track_uris:
         return "No URIs provided-> nothing removed."
-    sp.playlist_remove_all_occurrences_of_items(playlist_id, track_uris)
+    for i in range(0, len(track_uris), PLAYLIST_WRITE_BATCH_SIZE):
+        sp.playlist_remove_all_occurrences_of_items(playlist_id, track_uris[i:i + PLAYLIST_WRITE_BATCH_SIZE])
     return f"Removed {len(track_uris)} track(s) from playlist {playlist_id}"
 
 @mcp.tool()
