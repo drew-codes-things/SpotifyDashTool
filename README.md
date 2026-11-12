@@ -26,7 +26,7 @@ The MCP server can also be used standalone with any MCP-compatible client (Claud
 
 > [!IMPORTANT]
 > **Dual-auth model.** There are two independent Spotify auth paths, and they must be the **same account**:
-> 1. **Browser OAuth** (PKCE) - used for the frontend's direct read calls (`/api/playlists`, `/api/tracks`), as the app's login gate, and to authorise every `/api/mcp/*` call.
+> 1. **Browser OAuth** (authorization code flow; the backend holds the client secret and exchanges the code) - used for the frontend's direct read calls (`/api/playlists`, `/api/tracks`), as the app's login gate, and to authorise every `/api/mcp/*` call.
 > 2. **MCP server (spotipy)** - authenticates itself from the shared root `.env` and its own `mcp/.spotipyoauthcache`; this is what actually performs every playlist/playback/library action.
 >
 > The frontend sends its browser token as `Authorization: Bearer <token>` on every `/api/mcp/*` call. The backend checks it against Spotify's `/v1/me` (cached for a minute per token) and refuses the call (401 or 403) unless it belongs to the account the MCP server uses. Both paths read the same `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` from the single root `.env`, so point both at the one account.
