@@ -328,13 +328,8 @@ async function mcp(tool, args = {}) {
 function toast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   if (!container) { console.log(message); return; }
-  const colors = {
-    info:    'bg-gray-800 border-gray-600',
-    success: 'bg-green-900 border-green-600',
-    error:   'bg-red-900 border-red-600',
-  };
   const el = document.createElement('div');
-  el.className = `pointer-events-auto px-4 py-2 rounded-lg border text-sm text-neutral-100 shadow-lg max-w-sm text-center transition-opacity duration-300 ${colors[type] || colors.info}`;
+  el.className = type === 'error' ? 'sf-toast error' : 'sf-toast';
   el.textContent = String(message);
   container.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
@@ -402,7 +397,7 @@ async function loadPlaylists() {
     const container = document.getElementById('playlists');
     if (!container) return;
     if (!playlists || playlists.length === 0) {
-      container.innerHTML = '<p class="text-gray-400 text-sm p-4">No playlists found.</p>';
+      container.innerHTML = '<p class="text-faint text-sm p-4">No playlists found.</p>';
       return;
     }
     if (playlistsTotal) playlistsTotal.textContent = `${playlists.length} playlists`;
@@ -415,26 +410,26 @@ async function loadPlaylists() {
       const safeOwner = escHtml(p.owner || 'Unknown');
       return `
     <button
-      class="playlist-item relative card-hover w-full text-left p-0 rounded-xl glass-effect hover:border hover:border-red-500/30 transition-all duration-300 flex flex-col overflow-hidden group"
+      class="playlist-item relative card-hover w-full text-left p-0 rounded-2xl glass-effect flex flex-col overflow-hidden group"
       data-playlist-id="${escHtml(p.id)}"
     >
       ${p.image
         ? `<img src="${escHtml(p.image)}" alt="${safeName}" class="w-full h-36 object-cover group-hover:opacity-30 transition-opacity" loading="lazy">`
-        : `<div class="w-full h-36 bg-gradient-to-br from-red-900/60 to-gray-800 flex items-center justify-center group-hover:opacity-30 transition-opacity">
-             <svg class="w-12 h-12 text-red-400 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        : `<div class="w-full h-36 bg-raised flex items-center justify-center group-hover:opacity-30 transition-opacity">
+             <svg class="w-10 h-10 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
              </svg>
            </div>`
       }
       <div class="track-preview-overlay">
-        <div class="font-bold text-neutral-300 text-sm mb-2 truncate">${safeName}</div>
+        <div class="font-semibold text-fg text-sm mb-2 truncate">${safeName}</div>
         <div id="preview-tracks-${p.id}" class="track-preview-list text-xs space-y-1 overflow-y-auto">
-          <div class="text-gray-400 text-center py-2">Loading tracks...</div>
+          <div class="text-faint text-center py-2">Loading tracks...</div>
         </div>
       </div>
-      <div class="p-4 min-w-0 relative z-10 bg-gradient-to-t from-black/60 to-transparent">
-        <div class="font-semibold text-neutral-100 truncate">${safeName}</div>
-        <div class="text-xs text-red-400 opacity-50">by ${safeOwner}</div>
+      <div class="p-4 min-w-0 relative z-10">
+        <div class="font-semibold text-fg truncate">${safeName}</div>
+        <div class="text-xs text-faint">by ${safeOwner}</div>
       </div>
     </button>
   `}).join('');
@@ -456,23 +451,23 @@ async function loadPlaylists() {
           const tracks = data.result || [];
           const el     = document.getElementById(`preview-tracks-${playlistId}`);
           if (!el) return;
-          if (!tracks.length) { el.innerHTML = '<div class="text-gray-400 text-center py-2">No tracks</div>'; return; }
+          if (!tracks.length) { el.innerHTML = '<div class="text-faint text-center py-2">No tracks</div>'; return; }
           el.innerHTML = tracks.slice(0, 5).map(t => `
             <div class="preview-track-item">
               <div class="track-name truncate">${escHtml(t.name || 'Unknown')}</div>
               <div class="track-artist truncate">${escHtml(t.artists?.[0] || 'Unknown Artist')}</div>
             </div>
-          `).join('') + (tracks.length > 5 ? `<div class="text-gray-400 text-center py-1">+${tracks.length - 5} more</div>` : '');
+          `).join('') + (tracks.length > 5 ? `<div class="text-faint text-center py-1">+${tracks.length - 5} more</div>` : '');
         } catch (err) {
           const el = document.getElementById(`preview-tracks-${playlistId}`);
-          if (el) el.innerHTML = '<div class="text-red-400 text-center py-2">Error loading</div>';
+          if (el) el.innerHTML = '<div class="text-accent-text text-center py-2">Error loading</div>';
         }
       });
     });
   } catch (err) {
     console.error('Failed to load playlists:', err);
     const container = document.getElementById('playlists');
-    if (container) container.innerHTML = '<p class="text-red-400 text-sm p-4">Failed to load playlists. Please refresh.</p>';
+    if (container) container.innerHTML = '<p class="text-accent-text text-sm p-4">Failed to load playlists. Please refresh.</p>';
   }
 }
 
@@ -908,13 +903,13 @@ function openTrackModal(uriOrTrack) {
   if (genresEl) {
     genresEl.innerHTML = track.genre_text
       ? track.genre_text.split(', ').map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
-      : '<span class="text-red-400 text-xs">Loading...</span>';
+      : '<span class="text-muted text-xs">Loading...</span>';
   }
 
   const featuresEl = document.getElementById('modalTrackStats');
   if (featuresEl) {
     featuresEl.innerHTML = track.popularity != null
-      ? `<span class="text-neutral-400">Popularity</span>: ${track.popularity}/100`
+      ? `<span class="text-muted">Popularity</span>: ${track.popularity}/100`
       : '';
   }
 
@@ -941,7 +936,7 @@ function openTrackModal(uriOrTrack) {
           if (genresEl) {
             genresEl.innerHTML = genres.length
               ? genres.map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
-              : '<span class="text-red-400 text-xs">Unknown</span>';
+              : '<span class="text-muted text-xs">Unknown</span>';
           }
         })
         .catch(() => { if (genresEl) genresEl.textContent = 'Unavailable'; });
@@ -1011,7 +1006,7 @@ function formatDuration(ms) {
 function renderTracks(tracks) {
   if (!trackList) return;
   if (!tracks || !tracks.length) {
-    trackList.innerHTML = '<li class="text-gray-500 text-sm p-4 text-center">No tracks to display.</li>';
+    trackList.innerHTML = '<li class="text-faint text-sm p-4 text-center">No tracks to display.</li>';
     initSortable();
     updatePlaylistStats();
     return;
@@ -1021,22 +1016,22 @@ function renderTracks(tracks) {
     const artist   = t.artists?.map(a => String(a)).join(', ') || 'Unknown Artist';
     const duration = formatDuration(t.duration_ms);
     const thumbHtml = t.image
-      ? `<img src="${escHtml(t.image)}" alt="" class="w-10 h-10 rounded object-cover flex-shrink-0" loading="lazy">`
-      : '<div class="w-10 h-10 rounded bg-red-900/40 flex-shrink-0 flex items-center justify-center"><svg class="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg></div>';
+      ? `<img src="${escHtml(t.image)}" alt="" class="w-10 h-10 rounded-lg object-cover flex-shrink-0" loading="lazy">`
+      : '<div class="w-10 h-10 rounded-lg bg-raised flex-shrink-0 flex items-center justify-center"><svg class="w-5 h-5 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg></div>';
     const genreBadges = t.genre_text
       ? t.genre_text.split(', ').map(g => `<span class="genre-badge">${escHtml(g)}</span>`).join('')
       : '';
-    return `<li class="track-item flex items-center gap-3 p-3 rounded-lg group" data-uri="${safeUri}">
-      <span class="drag-handle cursor-grab text-red-700 hover:text-red-400 text-lg select-none px-1" tabindex="0" role="button" aria-label="Reorder track. Press Alt with Arrow Up or Arrow Down to move." data-uri="${safeUri}">⠿</span>
-      <input type="checkbox" class="track-checkbox w-4 h-4 flex-shrink-0" data-uri="${safeUri}" onchange="updateSelectedCount()">
+    return `<li class="track-item flex items-center gap-3 p-2 sm:p-3 group" data-uri="${safeUri}">
+      <span class="drag-handle cursor-grab text-faint hover:text-fg text-lg select-none px-1" tabindex="0" role="button" aria-label="Reorder track. Press Alt with Arrow Up or Arrow Down to move." data-uri="${safeUri}">⠿</span>
+      <input type="checkbox" class="track-checkbox flex-shrink-0" data-uri="${safeUri}" onchange="updateSelectedCount()">
       ${thumbHtml}
       <div class="track-info min-w-0 flex-1 cursor-pointer" data-uri="${safeUri}">
-        <div class="font-medium truncate text-neutral-100">${escHtml(t.name || 'Unknown')}</div>
-        <div class="text-sm text-neutral-400 truncate">${escHtml(artist)}</div>
+        <div class="font-medium truncate text-fg">${escHtml(t.name || 'Unknown')}</div>
+        <div class="text-sm text-muted truncate">${escHtml(artist)}</div>
         <div class="genre-tag mt-0.5">${genreBadges}</div>
       </div>
-      <div class="text-sm text-red-400 flex-shrink-0">${duration}</div>
-      <button class="track-remove-btn text-red-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1 ml-1"
+      <div class="text-sm text-faint tabular-nums flex-shrink-0">${duration}</div>
+      <button class="track-remove-btn sf-icon-btn hover:text-accent-text opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
         data-uri="${safeUri}" aria-label="Remove track">✕</button>
     </li>`;
   }).join('');
@@ -1173,16 +1168,16 @@ function renderQueue() {
   queueList.innerHTML = currentQueue.map((t, i) => {
     const artist = t.artists?.join(', ') || 'Unknown';
     const thumb  = t.image
-      ? `<img src="${t.image}" alt="" class="w-8 h-8 rounded object-cover flex-shrink-0">`
-      : '<div class="w-8 h-8 rounded bg-red-900/40 flex-shrink-0"></div>';
-    return `<div class="queue-item flex items-center gap-2 rounded-lg p-1 hover:bg-red-500/10 transition-all group" data-uri="${escHtml(t.uri)}">
-      <span class="queue-drag cursor-grab text-red-700 hover:text-red-400 select-none px-0.5" title="Drag to reorder">⠿</span>
+      ? `<img src="${t.image}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
+      : '<div class="w-8 h-8 rounded-md bg-raised flex-shrink-0"></div>';
+    return `<div class="queue-item flex items-center gap-2 rounded-xl p-1 transition-colors group" data-uri="${escHtml(t.uri)}">
+      <span class="queue-drag cursor-grab text-faint hover:text-fg select-none px-0.5" title="Drag to reorder">⠿</span>
       ${thumb}
       <div class="min-w-0 flex-1 cursor-pointer" data-queue-index="${i}" title="Play from here">
-        <div class="text-xs font-medium text-neutral-100 truncate">${escHtml(t.name || 'Unknown')}</div>
-        <div class="text-xs text-red-400/70 truncate">${escHtml(artist)}</div>
+        <div class="text-xs font-medium text-fg truncate">${escHtml(t.name || 'Unknown')}</div>
+        <div class="text-xs text-faint truncate">${escHtml(artist)}</div>
       </div>
-      <button class="queue-play text-red-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1" data-queue-index="${i}" title="Play from here" aria-label="Play from here">
+      <button class="queue-play text-muted hover:text-fg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0 p-1" data-queue-index="${i}" title="Play from here" aria-label="Play from here">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
       </button>
     </div>`;
@@ -1330,14 +1325,14 @@ function openAddToPlaylistModal() {
   const meta = window._playlistMeta || {};
   const entries = Object.entries(meta);
   if (!entries.length) {
-    list.innerHTML = '<p class="text-red-400 text-sm">No playlists loaded.</p>';
+    list.innerHTML = '<p class="text-muted text-sm">No playlists loaded.</p>';
   } else {
     list.innerHTML = entries.map(([id, m]) => `
-      <button class="add-to-pl-item w-full text-left flex items-center gap-2 p-2 rounded-lg hover:bg-red-500/20 transition-all" data-pl-id="${id}">
+      <button class="add-to-pl-item w-full text-left flex items-center gap-2 p-2 rounded-xl transition-colors" data-pl-id="${id}">
         ${m.image
-          ? `<img src="${m.image}" alt="" class="w-8 h-8 rounded object-cover flex-shrink-0">`
-          : '<div class="w-8 h-8 rounded bg-red-900/40 flex-shrink-0"></div>'}
-        <span class="text-sm text-neutral-100 truncate">${escHtml(m.name)}</span>
+          ? `<img src="${m.image}" alt="" class="w-8 h-8 rounded-md object-cover flex-shrink-0">`
+          : '<div class="w-8 h-8 rounded-md bg-raised flex-shrink-0"></div>'}
+        <span class="text-sm text-fg truncate">${escHtml(m.name)}</span>
       </button>
     `).join('');
     list.querySelectorAll('.add-to-pl-item').forEach(btn => {
@@ -1363,10 +1358,10 @@ async function openGenreStats() {
   const body     = document.getElementById('genreStatsBody');
   openModal('genreStatsModal');
   if (subtitle) subtitle.textContent = `${playlistTitle?.textContent || 'Playlist'} • ${displayedTracks.length} tracks`;
-  if (body)     body.innerHTML = '<div class="text-red-400 text-sm">Fetching genres from Last.fm…</div>';
+  if (body)     body.innerHTML = '<div class="text-muted text-sm">Fetching genres from Last.fm…</div>';
 
   await loadAllGenres((done, total) => {
-    if (body && total) body.innerHTML = `<div class="text-red-400 text-sm">Fetching genres… ${done}/${total}</div>`;
+    if (body && total) body.innerHTML = `<div class="text-muted text-sm">Fetching genres… ${done}/${total}</div>`;
   });
 
   const counts = {};
@@ -1384,18 +1379,18 @@ async function openGenreStats() {
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 15);
   if (subtitle) subtitle.textContent = `${playlistTitle?.textContent || 'Playlist'} • ${analyzed}/${displayedTracks.length} tracks tagged`;
   if (!body) return;
-  if (!sorted.length) { body.innerHTML = '<div class="text-red-400 text-sm">No genre data found.</div>'; return; }
+  if (!sorted.length) { body.innerHTML = '<div class="text-muted text-sm">No genre data found.</div>'; return; }
 
   const max = sorted[0][1];
   body.innerHTML = sorted.map(([genre, count]) => {
     const pct = Math.round((count / max) * 100);
     return `<div>
       <div class="flex justify-between text-xs mb-1">
-        <span class="text-neutral-300 capitalize">${escHtml(genre)}</span>
-        <span class="text-red-400/70">${count}</span>
+        <span class="text-muted capitalize">${escHtml(genre)}</span>
+        <span class="text-faint tabular-nums">${count}</span>
       </div>
-      <div class="w-full bg-gray-700/30 rounded-full h-2">
-        <div class="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full" style="width: ${pct}%"></div>
+      <div class="w-full bg-line-strong rounded-full h-1.5">
+        <div class="bg-accent-fill h-1.5 rounded-full" style="width: ${pct}%"></div>
       </div>
     </div>`;
   }).join('');
