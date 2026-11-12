@@ -3,6 +3,7 @@ from mcp.server.fastmcp import FastMCP
 import base64
 import logging
 import requests
+from urllib.parse import urlparse
 from settings import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -265,6 +266,14 @@ def sort_playlist(playlist_id: str, sort_by: str = "name", order: str = "asc") -
     save_playlist_order(playlist_id, uris)
     return f"Playlist sorted by {sort_by} ({order}) and saved. {len(uris)} tracks."
 
+SPOTIFY_IMAGE_HOST_SUFFIXES = (".scdn.co", ".spotifycdn.com")
+
+
+def _is_spotify_image_url(url: str) -> bool:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and host.endswith(SPOTIFY_IMAGE_HOST_SUFFIXES)
+
 @mcp.tool()
 def create_playlist_from_tracks(name: str, track_uris: list[str], public: bool = False, description: str = "", cover_image_url: str = "") -> str:
     playlist = sp.current_user_playlist_create(
@@ -276,9 +285,13 @@ def create_playlist_from_tracks(name: str, track_uris: list[str], public: bool =
         for i in range(0, len(track_uris), 100):
             sp.playlist_add_items(playlist["id"], track_uris[i:i + 100])
     cover_note = ""
-    if cover_image_url:
+    if cover_image_url and not _is_spotify_image_url(cover_image_url):
+        cover_note = " Cover not copied: only Spotify image URLs are fetched."
+    elif cover_image_url:
         try:
-            img = requests.get(cover_image_url, timeout=10).content
+            response = requests.get(cover_image_url, timeout=10)
+            response.raise_for_status()
+            img = response.content
             b64 = base64.b64encode(img).decode("ascii")
             sp.playlist_upload_cover_image(playlist["id"], b64)
             cover_note = " Cover image copied."
