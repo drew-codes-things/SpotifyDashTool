@@ -8,6 +8,7 @@ const path = require('path');
 const BACKEND_ENTRY = path.join(__dirname, '..', 'index.js');
 const FAKE_MCP_SERVER = path.join(__dirname, 'fixtures', 'fake-mcp-server.js');
 const STARTUP_TIMEOUT_MS = 10000;
+const STALLED_TOKEN = 'stalled-token';
 
 const SPOTIFY_USERS_BY_TOKEN = {
   'good-token': 'mcp-account',
@@ -33,6 +34,7 @@ async function startFakeSpotify() {
   const meRequests = [];
   const server = http.createServer((req, res) => {
     const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+    if (token === STALLED_TOKEN) return;
     if (req.url !== '/v1/me') {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: { status: 404, message: 'Not found' } }));
@@ -50,7 +52,10 @@ async function startFakeSpotify() {
   return {
     apiBase: `http://127.0.0.1:${server.address().port}/v1`,
     meRequests,
-    close: () => new Promise(resolve => server.close(resolve)),
+    close: () => new Promise(resolve => {
+      server.close(resolve);
+      server.closeAllConnections();
+    }),
   };
 }
 
@@ -129,6 +134,7 @@ function removeDir(dir) {
 }
 
 module.exports = {
+  STALLED_TOKEN,
   callMcpTool,
   makeTempDir,
   removeDir,

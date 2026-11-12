@@ -10,6 +10,8 @@ const HOST = process.env.HOST || '127.0.0.1';
 const SPOTIFY_API_BASE = process.env.SPOTIFY_API_BASE || 'https://api.spotify.com/v1';
 const VERIFIED_TOKEN_TTL_MS = 60 * 1000;
 const JSON_BODY_LIMIT = '2mb';
+const SPOTIFY_TIMEOUT_MS = Number(process.env.SPOTIFY_TIMEOUT_MS) || 10000;
+const spotifyHttp = axios.create({ timeout: SPOTIFY_TIMEOUT_MS });
 const PAYLOAD_TOO_LARGE = 413;
 const INTERNAL_SERVER_ERROR = 500;
 
@@ -79,7 +81,7 @@ app.post('/api/token', async (req, res) => {
 
     if (code_verifier) params.append('code_verifier', code_verifier);
 
-    const response = await axios.post(
+    const response = await spotifyHttp.post(
       'https://accounts.spotify.com/api/token',
       params,
       { headers: { Authorization: `Basic ${basicAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' } }
@@ -98,7 +100,7 @@ app.post('/api/refresh', async (req, res) => {
     return res.status(500).json({ error: 'Server misconfiguration: missing Spotify credentials. Check .env file.' });
   }
   try {
-    const response = await axios.post('https://accounts.spotify.com/api/token',
+    const response = await spotifyHttp.post('https://accounts.spotify.com/api/token',
       new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken
@@ -120,7 +122,7 @@ app.get('/api/playlists', async (req, res) => {
     let url = `${SPOTIFY_API_BASE}/me/playlists?limit=50`;
 
     while (url) {
-      const { data } = await axios.get(url, {
+      const { data } = await spotifyHttp.get(url, {
         headers: { Authorization: authHeader },
       });
 
@@ -131,7 +133,7 @@ app.get('/api/playlists', async (req, res) => {
 
         if (trackTotal === undefined || trackTotal === null) {
           try {
-            const fullPlaylist = await axios.get(`${SPOTIFY_API_BASE}/playlists/${p.id}?fields=items(total),tracks(total)`, {
+            const fullPlaylist = await spotifyHttp.get(`${SPOTIFY_API_BASE}/playlists/${p.id}?fields=items(total),tracks(total)`, {
               headers: { Authorization: authHeader },
             });
             trackTotal = fullPlaylist.data?.items?.total ?? fullPlaylist.data?.tracks?.total ?? 0;
@@ -212,7 +214,7 @@ async function spotifyUserIdForToken(token) {
   const cached = verifiedTokens.get(token);
   if (cached && cached.expiresAt > now) return cached.userId;
 
-  const { data } = await axios.get(`${SPOTIFY_API_BASE}/me`, {
+  const { data } = await spotifyHttp.get(`${SPOTIFY_API_BASE}/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!data?.id) throw new Error('Spotify /me returned no user id');
@@ -278,7 +280,7 @@ app.get('/api/tracks/:trackId', async (req, res) => {
     return res.status(401).json({ error: 'Missing authorization token' });
   }
   try {
-    const response = await axios.get(`${SPOTIFY_API_BASE}/tracks/${trackId}`, {
+    const response = await spotifyHttp.get(`${SPOTIFY_API_BASE}/tracks/${trackId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     res.json(response.data);
