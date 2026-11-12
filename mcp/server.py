@@ -185,10 +185,27 @@ def reorder_playlist_track(playlist_id: str, range_start: int, insert_before: in
     sp.playlist_reorder_items(playlist_id, range_start=range_start, insert_before=insert_before)
     return f"Moved track at position {range_start} to before position {insert_before}"
 
+def _count_items_that_cannot_be_rewritten(playlist_id: str) -> int:
+    count = 0
+    result = sp.playlist_items(playlist_id, limit=100)
+    while result:
+        for entry in result["items"]:
+            t = entry.get("item") or entry.get("track")
+            if t and (t.get("is_local") or t.get("type") == "episode"):
+                count += 1
+        result = sp.next(result) if result["next"] else None
+    return count
+
 @mcp.tool()
 def save_playlist_order(playlist_id: str, track_uris: list[str]) -> str:
     if not track_uris:
         return "No tracks provided-> playlist not modified."
+    unsupported = _count_items_that_cannot_be_rewritten(playlist_id)
+    if unsupported:
+        raise ValueError(
+            f"This playlist has {unsupported} local file(s) or podcast episode(s) that can't be put back "
+            "through the Spotify API, so saving a new order would delete them. Reorder it in the Spotify app instead."
+        )
     sp.playlist_replace_items(playlist_id, track_uris[:100])
     for i in range(100, len(track_uris), 100):
         sp.playlist_add_items(playlist_id, track_uris[i:i + 100])
