@@ -1,7 +1,7 @@
 {
-  "name": "spotify-sort-tool-backend",
+  "name": "spotify-dash-tool-backend",
   "version": "1.0.0",
-  "description": "Express backend + MCP bridge for SpotifySortTool",
+  "description": "Express backend + MCP bridge for SpotifyDashTool",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

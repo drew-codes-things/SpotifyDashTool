@@ -52,8 +52,8 @@ The MCP server can also be used standalone with any MCP-compatible client (Claud
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/drew-codes-things/SpotifySortTool.git
-cd SpotifySortTool
+git clone https://github.com/drew-codes-things/SpotifyDashTool.git
+cd SpotifyDashTool
 ```
 
 ### 2. Configure environment
@@ -246,9 +246,9 @@ Add this block to your MCP client config (e.g. `claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
-    "spotify-sort-tool": {
-      "command": "/path/to/SpotifySortTool/mcp/.venv/bin/python",
-      "args": ["/path/to/SpotifySortTool/mcp/server.py"],
+    "spotify-dash-tool": {
+      "command": "/path/to/SpotifyDashTool/mcp/.venv/bin/python",
+      "args": ["/path/to/SpotifyDashTool/mcp/server.py"],
       "transport": "stdio",
       "env": {
         "SPOTIFY_CLIENT_ID": "your_client_id",
@@ -273,7 +273,7 @@ from mcp.client.stdio import stdio_client
 
 server_params = StdioServerParameters(
     command="uv",
-    args=["--directory", "/path/to/SpotifySortTool/mcp", "run", "python", "server.py"],
+    args=["--directory", "/path/to/SpotifyDashTool/mcp", "run", "python", "server.py"],
     env={**os.environ},
 )
 
@@ -295,7 +295,7 @@ asyncio.run(main())
 ## File Structure
 
 ```
-SpotifySortTool/
+SpotifyDashTool/
   .env.example         Shared credential template (copy to .env in repo root)
   mcp/
     server.py          MCP server - all Spotify tools
