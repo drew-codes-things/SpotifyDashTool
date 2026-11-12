@@ -13,7 +13,7 @@ let initPromise = null;
 
 let restartAttempts = 0;
 const MAX_RESTART_ATTEMPTS = 5;
-const BASE_RESTART_DELAY_MS = 1000;
+const BASE_RESTART_DELAY_MS = Number(process.env.MCP_RESTART_BASE_DELAY_MS) || 1000;
 
 function rejectPendingCalls(reason) {
   for (const [, { reject, timer }] of pending) {
@@ -39,10 +39,6 @@ function startMcpProcess() {
     env: { ...process.env },
   });
   mcpProcess = child;
-
-  child.on('spawn', () => {
-    restartAttempts = 0;
-  });
 
   child.on('error', (err) => {
     console.error(`[mcp-bridge] Could not run the MCP server with uv: ${err.message}`);
@@ -132,6 +128,7 @@ async function ensureInitialized() {
       });
       send({ jsonrpc: '2.0', method: 'notifications/initialized' });
       initialized = true;
+      restartAttempts = 0;
       console.log('[mcp-bridge] MCP server initialized, protocol version:', result?.protocolVersion);
     } catch (err) {
       initialized = false;
