@@ -126,6 +126,10 @@ async function ensureInitialized() {
 async function callTool(toolName, args = {}) {
   await ensureInitialized();
   const result = await rpc('tools/call', { name: toolName, arguments: args });
+  if (result?.isError) {
+    const detail = (result.content || []).map(c => c.text || '').join(' ').trim();
+    throw new Error(detail || `MCP tool ${toolName} failed`);
+  }
   if (!result || !result.content || result.content.length === 0) return null;
 
   const blocks = result.content.filter(c => c.type === 'text' && c.text?.trim());
